@@ -221,7 +221,24 @@ limit 1")
       first
       :id))
 
-(get-most-recent-game-id)
+(defn get-next-move [line-id position-id]
+  (let [template "
+select
+  m.san as san,
+  m.final_position_id as position_id
+from
+  lines l cross join unnest(move_ids) as t(move_id)
+  left join moves m on t.move_id = m.id
+where
+  l.id = {{LINE_ID}}
+  and m.initial_position_id = {{POSITION_ID}};"
+        query (-> template
+                  (string/replace "{{LINE_ID}}" (str line-id))
+                  (string/replace "{{POSITION_ID}}" (str position-id)))]
+    (jdbc/query db query)))
+
+;;(get-next-move 1 20)
+;;(get-most-recent-game-id)
 
 (comment
   (def example-games-file
