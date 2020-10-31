@@ -33,6 +33,7 @@ module.exports = {
       template: `./front/${page}.html`,
       filename: `./${page}.html`, // automatically prefixed with output path
       //hash: true
+      inject: false
     })
   ],
   devtool: 'eval-source-map'

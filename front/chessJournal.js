@@ -6,7 +6,7 @@ var handle = null;
 const deepCopy = o => JSON.parse(JSON.stringify(o));
 
 const syncAppState = () => {
-  console.log("Syncing state to ", JSON.stringify(appState));
+  //console.log("Syncing state to ", JSON.stringify(appState));
   handle.setState(deepCopy(appState));
 };
 
@@ -253,20 +253,49 @@ class Page extends React.Component {
   };
 }
 
+const setBoard = data => {
+  console.log("Received: ", JSON.stringify(data.fen));
+  let board = parseFEN(data.fen);
+  appState.pieces = getPieces(board);
+  syncAppState();
+};
+
 const nextMove = () => {
-  null
-}
+  fetch('next-move', {method: 'POST'})
+    .then(resp => resp.json())
+    .then(setBoard);
+};
+
+const prevMove = () => {
+  fetch('prev-move', {method: 'POST'})
+    .then(resp => resp.json())
+    .then(setBoard);
+};
+
+//let keystrokes = 0;
+
+document.addEventListener("keydown", (e) => {
+  console.log(`Pressed ${e.code}`);
+  //keystrokes += 1;
+  //if (keystrokes%2 == 0) {
+  switch (e.code) {
+  case "ArrowLeft":
+    prevMove();
+    break;
+  case "ArrowRight":
+    console.log("Sending for next move");
+    nextMove();
+    break;
+  }
+  //}
+});
 
 window.addEventListener("DOMContentLoaded", () => {
   const div = document.getElementById("main");
   const page = React.createElement(Page, {pieces: []});
   ReactDOM.render(page, div);
+  
   fetch('info')
     .then(response => response.json())
-    .then(data => {
-      console.log("Received: ", JSON.stringify(data.fen));
-      let board = parseFEN(data.fen);
-      appState.pieces = getPieces(board);
-      syncAppState();
-    });
+    .then(setBoard);
 });

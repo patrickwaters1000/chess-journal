@@ -213,13 +213,12 @@ where m.initial_position_id = {{POSITION_ID}}"
 
 ;;(get-position-id chess/initial-fen)
 ;; (get-fen 4)
-(defn get-most-recent-game-id []
+(defn get-most-recent-game []
   (-> (jdbc/query db "
-select id from games
+select id, line_id from games
 order by date desc
 limit 1")
-      first
-      :id))
+      first))
 
 (defn get-next-move [line-id position-id]
   (let [template "
@@ -235,7 +234,7 @@ where
         query (-> template
                   (string/replace "{{LINE_ID}}" (str line-id))
                   (string/replace "{{POSITION_ID}}" (str position-id)))]
-    (jdbc/query db query)))
+    (first (jdbc/query db query))))
 
 ;;(get-next-move 1 20)
 ;;(get-most-recent-game-id)

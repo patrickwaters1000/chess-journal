@@ -13,22 +13,41 @@
   (atom nil))
 
 (defn reset-state! []
-  (reset! state
-          {:game-id (db/get-most-recent-game-id)
-           :position-id (db/get-position-id chess/initial-fen)
-           :history []}))
+  (let [{game-id :id
+         line-id :line_id} (db/get-most-recent-game)]
+    (reset! state
+            {:game-id game-id
+             :line-id line-id
+             :position-id (db/get-position-id chess/initial-fen)
+             :history []})))
 
 (reset-state!)
+
+(comment
+  @state
+  (next-move!)
+  nil)
 
 (defn next-move! []
   (swap! state
          (fn [s]
-           (let [{:keys [position-id history]} s
-                 {:keys [line-id]} (last history)
-                 {:keys [position-id]} (db/get-next-move
-                                        line-id position-id)]
-             (-> (assoc s :position-id position-id)
+           (let [{:keys [position-id line-id]} s
+                 {new-position-id :position_id} (db/get-next-move
+                                                 line-id position-id)]
+             (-> (assoc s :position-id new-position-id)
                  (update :history conj [line-id position-id]))))))
+
+(defn drop-last [xs]
+  (let [n (count xs)]
+    (vec (take (dec n) xs))))
+
+(defn prev-move! []
+  (swap! state
+         (fn [s]
+           (let [{:keys [history]} s
+                 [line-id position-id] (last history)]
+             (-> (assoc s :line-id line-id :position-id position-id)
+                 (update :history drop-last))))))
 
 (defn get-stuff-for-client []
   (let [{:keys [game-id position-id]} @state
@@ -50,7 +69,13 @@
            json/generate-string))
   (POST "/next-move" []
         (do
+
           (next-move!)
+          (-> (get-stuff-for-client)
+              json/generate-string)))
+  (POST "/prev-move" []
+        (do
+          (prev-move!)
           (-> (get-stuff-for-client)
               json/generate-string)))
   ;;(route/not-found "Not Found")
