@@ -1,5 +1,9 @@
 import React, { Component } from "react";
 import ReactDOM from "react-dom";
+//import './chessJournal.css';
+
+const hflexStyle = {display: "flex", flexDirection: "row"}
+const vflexStyle = {display: "flex", flexDirection: "column"}
 
 var handle = null;
 
@@ -13,7 +17,10 @@ const syncAppState = () => {
 var appState = {
   pieces: [],
   metadata: {white: "", black: "", date: "", result: ""},
-  comments: []
+  san: [],
+  comments: [],
+  selectedCommentIdx: -1,
+  currentlyEditingComment: false
 };
 
 const dx = window.innerHeight / 8;
@@ -216,9 +223,6 @@ const getPieces = board => {
       }
     });
   });
-  console.log("Num pieces = ", pieces.length);
-  //return [King({rank: 1, file: 5, color: "#000000"}),
-  //	  King({rank: 7, file: 5, color: "#ffffff"})];
   return pieces;
 };
 
@@ -242,30 +246,59 @@ const getPiece = piece => {
 
 const Metadata = props => React.createElement(
   "div",
-  {className: "vflex"},
+  //{className: "vflex"},
+  {style: vflexStyle},
   React.createElement("p", null, `white: ${props.white}`),
   React.createElement("p", null, `black: ${props.black}`),
   React.createElement("p", null, `result: ${props.result}`),
-  React.createElement("p", null, `date: ${props.date}`),
+  React.createElement("p", null, `date: ${props.date}`)
+);
+
+const CommentButton = props => React.createElement(
+  "button",
+  {
+    onClick: () => {
+      appState.selectedCommentIdx = props.idx;
+      syncAppState();
+    }
+  },
+  props.text
 );
 
 const CommentButtons = props => {
   let { comments } = props;
   return React.createElement(
     "div",
-    {className: "vflex"},
-    ...props.comments.map(comment => React.createElement(
-      "button",
-      null,
-      comment.text
-    ))
+    //{className: "vflex"},
+    {style: vflexStyle},
+    ...props.comments.map(
+      (comment, idx) => React.createElement(
+	CommentButton,
+	{idx: idx, text: comment.text})
+    )
   );
 };
 
 const CommentText = props => {
   return React.createElement(
     "div",
-    null
+    {style: vflexStyle},
+    React.createElement(
+      "label", {for: "annotation-box"}, "annotation:"),
+    React.createElement(
+      "textarea",
+      {id: "annotation-box", rows: 4, cols: 4, value: props.text}
+    ),
+    React.createElement(
+      "label", {for: "variation-box"}, "variation:"),
+    React.createElement(
+      "textarea",
+      {
+	id: "variation-box",
+	rows: 4,
+	cols: 4,
+	value: props.line.join(", ")
+      })
   );
 };
 
@@ -278,16 +311,23 @@ class Page extends React.Component {
   
   render() {
     let s = this.state;
+    let i = s.selectedCommentIdx;
+    let commentLine = (i == -1 ? s.san : s.comments[i].san);
+    let commentText = (i == -1 ? "": s.comments[i].text);
     return React.createElement(
       "div",
-      {className: "hflex"},
+      //{className: "hflex"},
+      {style: hflexStyle},
       React.createElement(Board, {pieces: s.pieces}),
       React.createElement(
 	"div",
-	{className: "vflex"},
+	//{className: "vflex"},
+	{style: vflexStyle},
 	React.createElement(Metadata, s.metadata),
 	React.createElement(CommentButtons, {comments: s.comments}),
-	React.createElement(CommentText, {stuff: s.currentComment}),
+	React.createElement(
+	  CommentText,
+	  {line: commentLine, text: commentText}),
       )
     );
   };
@@ -303,6 +343,7 @@ const setState = data => {
     date: data.date,
     result: data.result
   };
+  appState.san = data.san;
   appState.comments = data.comments;
   syncAppState();
 };
@@ -322,7 +363,6 @@ const prevMove = () => {
 //let keystrokes = 0;
 
 document.addEventListener("keydown", (e) => {
-  console.log(`Pressed ${e.code}`);
   //keystrokes += 1;
   //if (keystrokes%2 == 0) {
   switch (e.code) {
@@ -330,7 +370,6 @@ document.addEventListener("keydown", (e) => {
     prevMove();
     break;
   case "ArrowRight":
-    console.log("Sending for next move");
     nextMove();
     break;
   }

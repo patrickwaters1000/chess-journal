@@ -215,6 +215,17 @@ from new_line"
     (insert-moves! move-seq)
     (insert-line-and-comment! position-id date text move-seq)))
 
+(defn get-line-sans [line-ids]
+  (let [template "
+select l.id as line_id, m.san
+from lines l cross join unnest(move_ids) as t(move_id)
+  left join moves m on t.move_id = m.id 
+where l.id in ({{LINE_ID}});"
+        param (->> (map str line-ids)
+                   (string/join ", "))
+        query (string/replace template "{{LINE_ID}}" param)]
+    (jdbc/query db query)))
+
 (defn get-game-info [game-id]
   (let [game-template "
 select white, black, result, date, line_id
@@ -225,18 +236,16 @@ where id = {{GAME_ID}};"
                                    (str game-id))
         game-result (first (jdbc/query db game-query))
         line-id (:line_id game-result)
-        line-template "
-select m.san
-from lines l cross join unnest(move_ids) as t(move_id)
-  left join moves m on t.move_id = m.id 
-where l.id = {{LINE_ID}};"
-        line-query (string/replace line-template
-                                   "{{LINE_ID}}"
-                                   (str line-id))
-        line-results (jdbc/query db line-query)]
+        line-results (get-line-sans [line-id])]
     (assoc game-result :san (map :san line-results))))
 
-(defn get-comments [line-id]
+(defn map-vals [f k->v]
+  (reduce-kv (fn [acc k v]
+               (assoc acc k (f v)))
+             {}
+             k->v))
+
+(defn get-comments [game-line-id]
   (let [template "
 select 
   c.date, c.text, c.position_id, c.line_id
@@ -248,10 +257,25 @@ from
     cross join unnest(move_ids) as t(move_id)
     on m.id = t.move_id
 where l.id = {{LINE_ID}};"
-        query (string/replace template "{{LINE_ID}}" (str line-id))]
-    (jdbc/query db query)))
+        query (string/replace template "{{LINE_ID}}" (str game-line-id))
+        results (jdbc/query db query)
+        line-sans (->> (get-line-sans (map :line_id results))
+                       (group-by :line_id)
+                       (map-vals #(map :san %)))]
+    (->> results
+         (map #(assoc %
+                      :san
+                      (get line-sans
+                           (:line_id %)))))))
+
+
 
 (comment
+  (get-line-sans [2])
+  (->> (get-line-sans [2])
+       (group-by :line_id)
+       (map-vals #(map :san %))
+       )
   (get-comments 1)
   (chess/apply-move-san (get-fen 6) "Be7")
   (reductions chess/apply-move-san
