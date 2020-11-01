@@ -49,14 +49,20 @@
              (-> (assoc s :line-id line-id :position-id position-id)
                  (update :history drop-last))))))
 
+(comment
+  (count (db/get-comments 1))
+  nil)
+
 (defn get-stuff-for-client []
-  (let [{:keys [game-id position-id]} @state
+  (let [{:keys [game-id line-id position-id]} @state
         info (db/get-game-info game-id)
         fen (db/get-fen position-id)
-        moves (db/get-moves position-id)]
+        moves (db/get-moves position-id)
+        comments (db/get-comments line-id)]
     (assoc info
            :fen fen
-           :moves moves)))
+           :moves moves
+           :comments comments)))
 
 (defroutes the-app
   (GET "/" []
@@ -68,16 +74,24 @@
        (-> (get-stuff-for-client)
            json/generate-string))
   (POST "/next-move" []
-        (do
-
-          (next-move!)
-          (-> (get-stuff-for-client)
-              json/generate-string)))
+        (do (next-move!)
+            (-> (get-stuff-for-client)
+                json/generate-string)))
   (POST "/prev-move" []
-        (do
-          (prev-move!)
-          (-> (get-stuff-for-client)
-              json/generate-string)))
+        (do (prev-move!)
+            (-> (get-stuff-for-client)
+                json/generate-string)))
+  (POST "/add-comment" {body :body}
+        (let [data (slurp body)
+              {:keys [text position-id san]} data]
+          (do (println (format "Received comment %s" data))
+              (db/ingest-comment! position-id
+                                  (subs 0 10 (str (t/now)))
+                                  text
+                                  (string/split san #" "))
+              (-> (get-stuff-for-client)
+                  json/generate-string))))
+  
   ;;(route/not-found "Not Found")
   )
 

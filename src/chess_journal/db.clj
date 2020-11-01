@@ -92,8 +92,18 @@ create table comments (
   (reset-db!)
   nil)
 
+(defn get-fen [position-id]
+  (let [template "select fen from positions where id = '{{POS_ID}}';"
+        query (string/replace template "{{POS_ID}}" (str position-id))]
+    (-> (jdbc/query db query)
+        first
+        :fen)))
+
 (defn insert-positions! [fens]
-  (let [template "insert into positions(fen) values {{FENS}}"
+  (let [template "
+insert into positions(fen) 
+values {{FENS}}
+on conflict do nothing;"
         param (->> fens
                    (map #(format "('%s')", %))
                    (string/join ", "))
@@ -149,8 +159,35 @@ from new_line"
                   (string/replace "{{MOVES}}" moves-param))]
     (jdbc/execute! db query)))
 
+(defn insert-line-and-comment! [position-id date text moves]
+  (let [template "
+with new_line as (
+insert into lines (move_ids)
+select array_agg(m.id)
+from 
+  (values {{MOVES}}) as t (initial_fen, final_fen)
+  left join positions p1 on t.initial_fen = p1.fen
+  left join positions p2 on t.final_fen = p2.fen
+  left join moves m
+    on p1.id = m.initial_position_id
+    and p2.id = m.final_position_id
+returning id)
+insert into comments (date, position_id, text, line_id)
+select {{FIELDS}}, id
+from new_line"
+        fields-param (format "'%s', %s, '%s'"
+                               date position-id text)
+        moves-param (->> moves
+                         (map (juxt :initial-fen :final-fen))
+                         (map #(apply (partial format "('%s', '%s')") %))
+                         (string/join ", "))
+        query (-> template
+                  (string/replace "{{FIELDS}}" fields-param)
+                  (string/replace "{{MOVES}}" moves-param))]
+    (println query)
+    (jdbc/execute! db query)))
+
 (defn ingest-game! [metadata fens]
-  (insert-positions! fens)
   (let [fen-pairs (partition 2 1 fens)
         sans (map #(apply (partial chess/diff-fens-as-san) %)
                   fen-pairs)
@@ -160,8 +197,23 @@ from new_line"
                       :san san})
                    fen-pairs
                    sans)]
+    (insert-positions! fens)
     (insert-moves! moves)
     (insert-line-and-game! metadata moves)))
+
+(defn ingest-comment! [position-id date text san-seq]
+  (let [fen-seq (reductions chess/apply-move-san
+                            (get-fen position-id)
+                            san-seq)
+        move-seq (map (fn [[fen1 fen2] san]
+                        {:initial-fen fen1
+                         :final-fen fen2
+                         :san san})
+                      (partition 2 1 fen-seq)
+                      san-seq)]
+    (insert-positions! fen-seq)
+    (insert-moves! move-seq)
+    (insert-line-and-comment! position-id date text move-seq)))
 
 (defn get-game-info [game-id]
   (let [game-template "
@@ -184,6 +236,32 @@ where l.id = {{LINE_ID}};"
         line-results (jdbc/query db line-query)]
     (assoc game-result :san (map :san line-results))))
 
+(defn get-comments [line-id]
+  (let [template "
+select 
+  c.date, c.text, c.position_id, c.line_id
+from 
+  comments c
+  left join moves m 
+    on c.position_id = m.initial_position_id
+  left join lines l 
+    cross join unnest(move_ids) as t(move_id)
+    on m.id = t.move_id
+where l.id = {{LINE_ID}};"
+        query (string/replace template "{{LINE_ID}}" (str line-id))]
+    (jdbc/query db query)))
+
+(comment
+  (get-comments 1)
+  (chess/apply-move-san (get-fen 6) "Be7")
+  (reductions chess/apply-move-san
+              (get-fen 6)
+              ["Be7"])
+  (ingest-comment! 6
+                   "2020-10-31" "The white bishop does not really want to be on d2, because this leaves b2 and d4 undefended."
+                   ["Be7" "e4" "Nf6" "e5" "Ne4"])
+  nil)
+
 (defn get-moves [position-id]
   (let [template "
 select m.san, m.final_position_id, l.id as line_id, g.id as game_id
@@ -204,12 +282,7 @@ where m.initial_position_id = {{POSITION_ID}}"
         first
         :id)))
 
-(defn get-fen [position-id]
-  (let [template "select fen from positions where id = '{{POS_ID}}';"
-        query (string/replace template "{{POS_ID}}" (str position-id))]
-    (-> (jdbc/query db query)
-        first
-        :fen)))
+
 
 ;;(get-position-id chess/initial-fen)
 ;; (get-fen 4)

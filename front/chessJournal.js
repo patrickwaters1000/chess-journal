@@ -10,7 +10,11 @@ const syncAppState = () => {
   handle.setState(deepCopy(appState));
 };
 
-var appState = {pieces: []};
+var appState = {
+  pieces: [],
+  metadata: {white: "", black: "", date: "", result: ""},
+  comments: []
+};
 
 const dx = window.innerHeight / 8;
 const dy = window.innerHeight / 8;
@@ -208,7 +212,7 @@ const getPieces = board => {
   board.forEach((rank, r) => {
     rank.forEach((x, f) => {
       if (x != "") {
-	pieces.push({pieceType: x, rank: r, file: f});
+	pieces.push({pieceType: x, rank: 7-r, file: f});
       }
     });
   });
@@ -236,7 +240,35 @@ const getPiece = piece => {
   }[pieceType];
 }
 
-	  
+const Metadata = props => React.createElement(
+  "div",
+  {className: "vflex"},
+  React.createElement("p", null, `white: ${props.white}`),
+  React.createElement("p", null, `black: ${props.black}`),
+  React.createElement("p", null, `result: ${props.result}`),
+  React.createElement("p", null, `date: ${props.date}`),
+);
+
+const CommentButtons = props => {
+  let { comments } = props;
+  return React.createElement(
+    "div",
+    {className: "vflex"},
+    ...props.comments.map(comment => React.createElement(
+      "button",
+      null,
+      comment.text
+    ))
+  );
+};
+
+const CommentText = props => {
+  return React.createElement(
+    "div",
+    null
+  );
+};
+
 class Page extends React.Component {
   constructor(props) {
     super(props);
@@ -247,29 +279,44 @@ class Page extends React.Component {
   render() {
     let s = this.state;
     return React.createElement(
-      Board,
-      {pieces: s.pieces}
+      "div",
+      {className: "hflex"},
+      React.createElement(Board, {pieces: s.pieces}),
+      React.createElement(
+	"div",
+	{className: "vflex"},
+	React.createElement(Metadata, s.metadata),
+	React.createElement(CommentButtons, {comments: s.comments}),
+	React.createElement(CommentText, {stuff: s.currentComment}),
+      )
     );
   };
 }
 
-const setBoard = data => {
-  console.log("Received: ", JSON.stringify(data.fen));
+const setState = data => {
+  console.log("Received: ", JSON.stringify(data));
   let board = parseFEN(data.fen);
   appState.pieces = getPieces(board);
+  appState.metadata = {
+    white: data.white,
+    black: data.black,
+    date: data.date,
+    result: data.result
+  };
+  appState.comments = data.comments;
   syncAppState();
 };
 
 const nextMove = () => {
   fetch('next-move', {method: 'POST'})
     .then(resp => resp.json())
-    .then(setBoard);
+    .then(setState);
 };
 
 const prevMove = () => {
   fetch('prev-move', {method: 'POST'})
     .then(resp => resp.json())
-    .then(setBoard);
+    .then(setState);
 };
 
 //let keystrokes = 0;
@@ -292,10 +339,10 @@ document.addEventListener("keydown", (e) => {
 
 window.addEventListener("DOMContentLoaded", () => {
   const div = document.getElementById("main");
-  const page = React.createElement(Page, {pieces: []});
+  const page = React.createElement(Page, appState);
   ReactDOM.render(page, div);
   
   fetch('info')
     .then(response => response.json())
-    .then(setBoard);
+    .then(setState);
 });
