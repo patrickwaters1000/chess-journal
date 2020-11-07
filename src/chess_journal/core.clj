@@ -65,7 +65,7 @@
     (assoc game-data :line line-data)))
 
 ;;(db/get-line-start-position-id 2)
-;;(get-line-data 2)
+;;(get-line-data 1)
 
 
 (defroutes the-app

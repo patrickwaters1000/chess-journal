@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import ReactDOM from "react-dom";
 import Board from "./Board.js";
+import Line from "./Line.js";
 //import './chessJournal.css';
 
 const hflexStyle = {display: "flex", flexDirection: "row"}
@@ -68,11 +69,6 @@ const Metadata = props => React.createElement(
   React.createElement("p", null, `date: ${props.date}`)
 );
 
-/*const strfSingleMove = (fullMoveCounter, activeColor, san) => {
-  return (activeColor == "w"
-	  ? `${fullMoveCounter}. ${san}`
-	  : `${fullMoveCounter}. .. ${san}`);
-};*/
 
 /*const getCommentSummary = (comment) => {
   console.log(`Comment: ${JSON.stringify(comment)}`);
@@ -197,6 +193,13 @@ class Page extends React.Component {
 	//{className: "vflex"},
 	{style: vflexStyle},
 	React.createElement(Metadata, s.game),
+	React.createElement(
+	  Line,
+	  {
+	    line: s.line,
+	    ply: s.ply
+	  }
+	)
 	//React.createElement(CommentButtons, {comments: s.comments}),
 	/*React.createElement(
 	  CommentText,
