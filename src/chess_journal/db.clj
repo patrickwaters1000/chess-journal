@@ -21,6 +21,8 @@ create database chess_journal with owner patrick;")
   (jdbc/execute! db "
 create table positions (
   id serial primary key,
+  full_move_counter integer,
+  active_color varchar,
   fen varchar unique);"))
 
 (defn create-moves-table! []
@@ -101,11 +103,16 @@ create table comments (
 
 (defn insert-positions! [fens]
   (let [template "
-insert into positions(fen) 
+insert into positions(active_color, full_move_counter, fen) 
 values {{FENS}}
 on conflict do nothing;"
         param (->> fens
-                   (map #(format "('%s')", %))
+                   (map (fn [fen]
+                          (let [{:keys [active-color
+                                        full-move-counter]}
+                                (chess/parse-fen fen)]
+                            (format "('%s', %s, '%s')"
+                                    active-color full-move-counter fen))))
                    (string/join ", "))
         query (string/replace template "{{FENS}}" param)]
     (jdbc/execute! db query)))
@@ -248,9 +255,16 @@ where id = {{GAME_ID}};"
 (defn get-comments [game-line-id]
   (let [template "
 select 
-  c.date, c.text, c.position_id, c.line_id
+  c.date, 
+  c.text, 
+  c.position_id, 
+  c.line_id, 
+  p.full_move_counter, 
+  p.active_color
 from 
   comments c
+  left join positions p 
+    on c.position_id = p.id
   left join moves m 
     on c.position_id = m.initial_position_id
   left join lines l 

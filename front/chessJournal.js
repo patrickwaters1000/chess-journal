@@ -254,15 +254,31 @@ const Metadata = props => React.createElement(
   React.createElement("p", null, `date: ${props.date}`)
 );
 
+const strfSingleMove = (fullMoveCounter, activeColor, san) => {
+  return (activeColor == "w"
+	  ? `${fullMoveCounter}. ${san}`
+	  : `${fullMoveCounter}. .. ${san}`);
+};
+
+const getCommentSummary = (comment) => {
+  console.log(`Comment: ${JSON.stringify(comment)}`);
+  let { text, full_move_counter, active_color, san } = comment;
+  let s1 = strfSingleMove(
+    full_move_counter, active_color, san[0]);
+  let s2 = (text.length <= 13 ? text : `${text.substring(0,10)}...`);
+  return `${s1} ${s2}`;
+};
+
 const CommentButton = props => React.createElement(
   "button",
   {
     onClick: () => {
       appState.selectedCommentIdx = props.idx;
+      gotoMove(props.full_move_counter, props.active_color);
       syncAppState();
     }
   },
-  props.text
+  getCommentSummary(props)
 );
 
 const CommentButtons = props => {
@@ -274,9 +290,30 @@ const CommentButtons = props => {
     ...props.comments.map(
       (comment, idx) => React.createElement(
 	CommentButton,
-	{idx: idx, text: comment.text})
+	{ idx: idx,
+	  text: comment.text,
+	  san: comment.san,
+	  active_color: comment.active_color,
+	  full_move_counter: comment.full_move_counter })
     )
   );
+};
+
+const getVariationString = (fullMoveCounter, activeColor, san) => {
+  var i0, acc;
+  if (activeColor == "w") {
+    i0 = 2;
+    acc = `${fullMoveCounter}. ${san[0]} ${san[1]}`;
+  } else {
+    i0 = 1;
+    acc = `${fullMoveCounter}. .. ${san[1]}`;
+  }
+    let m = fullMoveCounter + 1;
+  for (let i = i0; i < san.length; i += 2) {
+    acc += ` ${m}. ${san[i]} ${san[i+1]}`
+    m += 1;
+  }
+  return acc;
 };
 
 const CommentText = props => {
@@ -297,7 +334,11 @@ const CommentText = props => {
 	id: "variation-box",
 	rows: 4,
 	cols: 4,
-	value: props.line.join(", ")
+	value: getVariationString(
+	  props.fullMoveCounter,
+	  props.activeColor,
+	  props.san
+	)
       })
   );
 };
@@ -312,8 +353,18 @@ class Page extends React.Component {
   render() {
     let s = this.state;
     let i = s.selectedCommentIdx;
-    let commentLine = (i == -1 ? s.san : s.comments[i].san);
-    let commentText = (i == -1 ? "": s.comments[i].text);
+    let san, text, active_color, full_move_counter;
+    if (i == -1) {
+      san = s.san;
+      text = "";
+      active_color = "w";
+      full_move_counter = 1;
+    } else {
+      san = s.comments[i].san;
+      text = s.comments[i].text;
+      active_color = s.comments[i].active_color;
+      full_move_counter = s.comments[i].full_move_counter;
+    }
     return React.createElement(
       "div",
       //{className: "hflex"},
@@ -327,7 +378,10 @@ class Page extends React.Component {
 	React.createElement(CommentButtons, {comments: s.comments}),
 	React.createElement(
 	  CommentText,
-	  {line: commentLine, text: commentText}),
+	  { san: san,
+	    text: text,
+	    activeColor: active_color,
+	    fullMoveCounter: full_move_counter }),
       )
     );
   };
@@ -359,6 +413,13 @@ const prevMove = () => {
     .then(resp => resp.json())
     .then(setState);
 };
+
+const gotoMove = (fmc, ac) => {
+  fetch(
+    `goto-move?fullMoveCounter=${fmc}&activeColor=${ac}`,
+    {method: 'POST'}
+  ).then(resp => resp.json()).then(setState);
+}
 
 //let keystrokes = 0;
 

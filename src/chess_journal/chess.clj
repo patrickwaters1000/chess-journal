@@ -78,6 +78,15 @@
           (move-to-san fen-1 move)
           (recur (rest moves)))))))
 
+(defn parse-fen [fen]
+  (let [[board
+         active-color
+         castling
+         en-passant
+         half-move-clock
+         full-move-counter] (string/split fen #" ")]
+    {:active-color active-color
+     :full-move-counter full-move-counter}))
 
 (comment
   ;; Move these to a test namespace
