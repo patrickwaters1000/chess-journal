@@ -48,8 +48,9 @@
           acc
           (let [next-move (get line-id->move line-id)
                 variations (->> (dissoc line-id->move line-id)
-                                vals
-                                (map :san))]
+                                (map (fn [[line-id move]]
+                                       {:san (:san move)
+                                        :line_id line-id})))]
             (recur (conj acc
                          (assoc (select-keys data
                                              [:fen
@@ -77,6 +78,8 @@
   (GET "/line" req
        (let [params (get req :params)
              line-id (get params "id")]
+         (println "Getting line data for line " line-id)
+         (println "The data is " (str (get-line-data line-id)))
          (-> (get-line-data line-id)
              json/generate-string)))
   (POST "/add-comment" {body :body}
@@ -96,6 +99,7 @@
   (run-server (rmp/wrap-params the-app) {:port 5000}))
 
 (comment
+  (get-line-data 2)
   (def app
     (-> app-routes
         ;;(middleware/wrap-json-body)

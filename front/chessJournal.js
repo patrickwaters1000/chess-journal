@@ -16,11 +16,12 @@ const syncAppState = () => {
   handle.setState(deepCopy(appState));
 };
 
+// NOTE the variation stack is a list, of maps;
+// each map has keys `ply` and `line`.
 var appState = {
   pieces: [],
   game: {white: "", black: "", date: "", result: ""},
-  line: [],
-  ply: 0
+  variationStack: [],
   //comments: [],
   //selectedCommentIdx: -1,
   //currentlyEditingComment: false
@@ -170,19 +171,11 @@ class Page extends React.Component {
   
   render() {
     let s = this.state;
-    //let i = s.selectedCommentIdx;
-    /*let san, text, active_color, full_move_counter;
-    if (i == -1) {
-      san = s.san;
-      text = "";
-      active_color = "w";
-      full_move_counter = 1;
-    } else {
-      san = s.comments[i].san;
-      text = s.comments[i].text;
-      active_color = s.comments[i].active_color;
-      full_move_counter = s.comments[i].full_move_counter;
-    }*/
+    let variations = s.variationStack.map(p => {
+      let p2 = deepCopy(p);
+      p2.stepIntoVariationFn = loadVariation;
+      return React.createElement(Line, p2);
+    });
     return React.createElement(
       "div",
       //{className: "hflex"},
@@ -193,13 +186,7 @@ class Page extends React.Component {
 	//{className: "vflex"},
 	{style: vflexStyle},
 	React.createElement(Metadata, s.game),
-	React.createElement(
-	  Line,
-	  {
-	    line: s.line,
-	    ply: s.ply
-	  }
-	)
+	...variations
 	//React.createElement(CommentButtons, {comments: s.comments}),
 	/*React.createElement(
 	  CommentText,
@@ -221,8 +208,10 @@ const setGame = (data) => {
     date: date,
     result: result
   };
-  appState.line = line;
-  appState.ply = 0;
+  appState.variationStack = [{
+    line: line,
+    ply: 0
+  }];
   //appState.comments = data.comments;
   setBoard();
   syncAppState();
@@ -239,36 +228,70 @@ const setBoard = () => {
   /*console.log(
     "Trying to set board. App state = ",
     JSON.stringify(appState));*/
-  let data = appState.line[appState.ply];
-  let board = parseFEN(data.fen);
-  appState.pieces = getPieces(board);
+  let vs = appState.variationStack;
+  let depth = vs.length;
+  if (depth > 0) {
+    let v = vs[depth - 1];
+    let data = v.line[v.ply];
+    let board = parseFEN(data.fen);
+    appState.pieces = getPieces(board);
+  }
 };
 
 const nextMove = () => {
-  let n = appState.line.length;
-  if (appState.ply < n - 1) {
-    appState.ply += 1;
-    setBoard();
-    syncAppState();
+  let vs = appState.variationStack;
+  let depth = vs.length;
+  if (depth > 0) {
+    let v = vs[depth - 1];
+    if (v.ply + 1 < v.line.length) {
+      v.ply += 1;
+      setBoard();
+      syncAppState();
+    }
   }
 };
 
 const prevMove = () => {
-  if (appState.ply > 0) {
-    appState.ply -= 1;
+  let vs = appState.variationStack;
+  let depth = vs.length;
+  if (depth > 0) {
+    let v = vs[depth - 1];
+    if (v.ply > 0) {
+      v.ply -= 1;
+    } else {
+      vs = vs.slice(0, depth - 1);
+    }
     setBoard();
     syncAppState();
   }
 };
 
-const gotoMove = (idx) => {
+/*const gotoMove = (idx) => {
   let n = appState.line.length;
   if (0 <= idx < n) {
     appState.ply = idx;
     setBoard();
     syncAppState();
   }
-}
+}*/
+
+const stepIntoVariation = (line) => {
+  console.log(
+    "Received variation ",
+    JSON.stringify(line)
+  );
+  let vs = appState.variationStack;
+  vs.push({ply: 0, line: line});
+  setBoard();
+  syncAppState();
+};
+
+const loadVariation = (lineId) => {
+  console.log("Fetching variation ", JSON.stringify(lineId));
+  fetch(`line?id=${lineId}`)
+    .then(response => response.json())
+    .then(stepIntoVariation);
+};
 
 document.addEventListener("keydown", (e) => {
   switch (e.code) {

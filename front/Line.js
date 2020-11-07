@@ -34,6 +34,8 @@ const Move = (props, idx, isCurrentMove) => {
   let { san,
 	full_move_counter,
 	active_color,
+	stepIntoVariationFn,
+	line_id
       } = props;
   let text = formatMoveText(props, idx);
   let style = deepCopy(moveStyle);
@@ -42,19 +44,24 @@ const Move = (props, idx, isCurrentMove) => {
   }
   return React.createElement(
     "div",
-    { style: style },
+    {
+      style: style,
+      onClick: () => { stepIntoVariationFn(line_id); }
+    },
     text,
   );
 };
 
 const MoveGroup = (p, idx, isCurrentMove) => {
   let move = Move(p, idx, isCurrentMove);
-  let variations = p.variations.map(san => {
+  let variations = p.variations.map(v => {
     return Move(
       {
-	san: san,
+	san: v.san,
+	line_id: v.line_id,
 	full_move_counter: p.full_move_counter,
-	active_color: p.active_color
+	active_color: p.active_color,
+	stepIntoVariationFn: p.stepIntoVariationFn,
       },
       0,
       false
@@ -77,7 +84,7 @@ const MoveGroup = (p, idx, isCurrentMove) => {
 export default class Line extends React.Component {
   render () {
     let {
-      line, ply
+      line, ply, stepIntoVariationFn
     } = this.props;
     return React.createElement(
       "div",
@@ -87,7 +94,13 @@ export default class Line extends React.Component {
 	style: lineStyle
       },
       ...line.map((data, idx) => {
-	return MoveGroup(data, idx, idx == ply - 1);
+	let p = deepCopy(data);
+	p.stepIntoVariationFn = stepIntoVariationFn;
+	return MoveGroup(
+	  p,
+	  idx,
+	  idx == ply - 1,
+	);
       })
     );
   }
