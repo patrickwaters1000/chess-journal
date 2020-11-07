@@ -16,11 +16,12 @@ const syncAppState = () => {
 
 var appState = {
   pieces: [],
-  metadata: {white: "", black: "", date: "", result: ""},
-  san: [],
-  comments: [],
-  selectedCommentIdx: -1,
-  currentlyEditingComment: false
+  game: {white: "", black: "", date: "", result: ""},
+  line: [],
+  ply: 0
+  //comments: [],
+  //selectedCommentIdx: -1,
+  //currentlyEditingComment: false
 };
 
 const dx = window.innerHeight / 8;
@@ -164,8 +165,6 @@ const King = getPieceFn([
   [0.85, 0.1]
 ]);
 
-//const getSquare = (i, j) => { }
-
 const Board = props => {
   const squares = [];
   for (let i = 0; i < 8; i++) {
@@ -254,21 +253,22 @@ const Metadata = props => React.createElement(
   React.createElement("p", null, `date: ${props.date}`)
 );
 
-const strfSingleMove = (fullMoveCounter, activeColor, san) => {
+/*const strfSingleMove = (fullMoveCounter, activeColor, san) => {
   return (activeColor == "w"
 	  ? `${fullMoveCounter}. ${san}`
 	  : `${fullMoveCounter}. .. ${san}`);
-};
+};*/
 
-const getCommentSummary = (comment) => {
+/*const getCommentSummary = (comment) => {
   console.log(`Comment: ${JSON.stringify(comment)}`);
   let { text, full_move_counter, active_color, san } = comment;
   let s1 = strfSingleMove(
     full_move_counter, active_color, san[0]);
   let s2 = (text.length <= 13 ? text : `${text.substring(0,10)}...`);
   return `${s1} ${s2}`;
-};
+};*/
 
+/*
 const CommentButton = props => React.createElement(
   "button",
   {
@@ -280,7 +280,9 @@ const CommentButton = props => React.createElement(
   },
   getCommentSummary(props)
 );
+*/
 
+/*
 const CommentButtons = props => {
   let { comments } = props;
   return React.createElement(
@@ -298,7 +300,9 @@ const CommentButtons = props => {
     )
   );
 };
+*/
 
+/*
 const getVariationString = (fullMoveCounter, activeColor, san) => {
   var i0, acc;
   if (activeColor == "w") {
@@ -315,7 +319,9 @@ const getVariationString = (fullMoveCounter, activeColor, san) => {
   }
   return acc;
 };
+*/
 
+/*
 const CommentText = props => {
   return React.createElement(
     "div",
@@ -342,6 +348,7 @@ const CommentText = props => {
       })
   );
 };
+*/
 
 class Page extends React.Component {
   constructor(props) {
@@ -352,8 +359,8 @@ class Page extends React.Component {
   
   render() {
     let s = this.state;
-    let i = s.selectedCommentIdx;
-    let san, text, active_color, full_move_counter;
+    //let i = s.selectedCommentIdx;
+    /*let san, text, active_color, full_move_counter;
     if (i == -1) {
       san = s.san;
       text = "";
@@ -364,7 +371,7 @@ class Page extends React.Component {
       text = s.comments[i].text;
       active_color = s.comments[i].active_color;
       full_move_counter = s.comments[i].full_move_counter;
-    }
+    }*/
     return React.createElement(
       "div",
       //{className: "hflex"},
@@ -374,58 +381,78 @@ class Page extends React.Component {
 	"div",
 	//{className: "vflex"},
 	{style: vflexStyle},
-	React.createElement(Metadata, s.metadata),
-	React.createElement(CommentButtons, {comments: s.comments}),
-	React.createElement(
+	React.createElement(Metadata, s.game),
+	//React.createElement(CommentButtons, {comments: s.comments}),
+	/*React.createElement(
 	  CommentText,
 	  { san: san,
 	    text: text,
 	    activeColor: active_color,
-	    fullMoveCounter: full_move_counter }),
+	    fullMoveCounter: full_move_counter })*/
       )
     );
   };
 }
 
-const setState = data => {
-  console.log("Received: ", JSON.stringify(data));
-  let board = parseFEN(data.fen);
-  appState.pieces = getPieces(board);
-  appState.metadata = {
-    white: data.white,
-    black: data.black,
-    date: data.date,
-    result: data.result
+const setGame = (data) => {
+  console.log("Received game: ", JSON.stringify(data));
+  let { white, black, date, result, line } = data;
+  appState.game = {
+    white: white,
+    black: black,
+    date: date,
+    result: result
   };
-  appState.san = data.san;
-  appState.comments = data.comments;
+  appState.line = line;
+  appState.ply = 0;
+  //appState.comments = data.comments;
+  setBoard();
   syncAppState();
 };
 
+// INCOMPLETE
+// not used when loading a game
+// finish when needed
+const setLine = (data) => {
+  null;
+};
+
+const setBoard = () => {
+  console.log(
+    "Trying to set board. App state = ",
+    JSON.stringify(appState));
+  let data = appState.line[appState.ply];
+  let board = parseFEN(data.fen);
+  appState.pieces = getPieces(board);
+};
+
 const nextMove = () => {
-  fetch('next-move', {method: 'POST'})
-    .then(resp => resp.json())
-    .then(setState);
+  let n = appState.line.length;
+  if (appState.ply < n - 1) {
+    appState.ply += 1;
+    setBoard();
+    syncAppState();
+  }
 };
 
 const prevMove = () => {
-  fetch('prev-move', {method: 'POST'})
-    .then(resp => resp.json())
-    .then(setState);
+  if (appState.ply > 0) {
+    appState.ply -= 1;
+    setBoard();
+    syncAppState();
+  }
 };
 
-const gotoMove = (fmc, ac) => {
-  fetch(
-    `goto-move?fullMoveCounter=${fmc}&activeColor=${ac}`,
-    {method: 'POST'}
-  ).then(resp => resp.json()).then(setState);
+const gotoMove = (idx) => {
+  let n = appState.line.length;
+  if (0 <= idx < n) {
+    appState.ply = idx;
+    setBoard();
+    syncAppState();
+  }
 }
 
-//let keystrokes = 0;
-
 document.addEventListener("keydown", (e) => {
-  //keystrokes += 1;
-  //if (keystrokes%2 == 0) {
   switch (e.code) {
   case "ArrowLeft":
     prevMove();
@@ -434,15 +461,13 @@ document.addEventListener("keydown", (e) => {
     nextMove();
     break;
   }
-  //}
 });
 
 window.addEventListener("DOMContentLoaded", () => {
   const div = document.getElementById("main");
   const page = React.createElement(Page, appState);
-  ReactDOM.render(page, div);
-  
-  fetch('info')
+  ReactDOM.render(page, div);  
+  fetch('game')
     .then(response => response.json())
-    .then(setState);
+    .then(setGame);
 });

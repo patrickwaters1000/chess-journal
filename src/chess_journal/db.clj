@@ -90,6 +90,35 @@ create table comments (
   (create-games-table!)
   (create-comments-table!))
 
+(defn get-all-moves []
+  (jdbc/query db "
+select
+  l.id as line_id,
+  m.id as move_id,
+  m.san,
+  p.id as position_id,
+  m.final_position_id as next_position_id,
+  p.fen,
+  p.full_move_counter,
+  p.active_color
+from 
+  lines l cross join unnest(move_ids) as t(move_id)
+  left join moves m on t.move_id = m.id
+  left join positions p on m.initial_position_id = p.id"))
+
+(defn get-line-start-position-id [line-id]
+  (let [template "
+with first_move_id as (
+  select move_ids[1] as move_id
+  from lines l
+  where l.id = {{LINE_ID}})
+select m.initial_position_id
+from
+  first_move_id f 
+  left join moves m on f.move_id = m.id"
+        query (string/replace template "{{LINE_ID}}" (str line-id))]
+    (-> (jdbc/query db query) first :initial_position_id)))
+
 (comment
   (reset-db!)
   nil)
