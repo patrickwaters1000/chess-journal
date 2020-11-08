@@ -79,8 +79,12 @@
 
 (defn get-game-data [game-id]
   (let [game-data (db/get-game-info game-id)
-        line-data (get-line-data (:line_id game-data))]
-    (assoc game-data :line line-data)))
+        line-id (:line_id game-data)
+        line-data (get-line-data line-id)]
+    (assoc game-data
+           :line
+           {:id line-id
+            :moves line-data})))
 
 ;;(db/get-line-start-position-id 2)
 ;;(get-line-data 1)
@@ -101,7 +105,8 @@
   (GET "/line" req
        (let [params (get req :params)
              line-id (Integer/parseInt (get params "id"))]
-         (-> (get-line-data line-id)
+         (-> {:id line-id
+              :moves (get-line-data line-id)}
              json/generate-string)))
   (POST "/move" {body :body}
         (let [data (json/parse-string (slurp body))
@@ -120,6 +125,14 @@
             :full_move_counter full-move-counter
             :san san
             :variations []})))
+  (POST "/new-variation" {body :body}
+        (let [data (json/parse-string (slurp body))
+              fen (sget data "fen")
+              san-seq (sget data "san_seq")]
+          (println "Adding new variation; data = " data)
+          (db/ingest-line! fen san-seq)
+          (reset-multitree!)
+          "ok"))
   (POST "/add-comment" {body :body}
         (let [data (slurp body)
               {:keys [text position-id san]} data]

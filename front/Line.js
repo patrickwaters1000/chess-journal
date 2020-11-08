@@ -93,7 +93,7 @@ const MoveGroup = (p, idx, isCurrentMove) => {
 export default class Line extends React.Component {
   render () {
     let {
-      line, ply, stepIntoVariationFn
+      moves, ply, stepIntoVariationFn
     } = this.props;
     return React.createElement(
       "div",
@@ -103,7 +103,7 @@ export default class Line extends React.Component {
 	style: lineStyle
       },
       // First element of line is initial pos w/ no move
-      ...line.slice(1).map((data, idx) => {
+      ...moves.slice(1).map((data, idx) => {
 	let p = deepCopy(data);
 	p.stepIntoVariationFn = stepIntoVariationFn;
 	return MoveGroup(

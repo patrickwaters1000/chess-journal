@@ -227,6 +227,38 @@ from new_line"
     (println query)
     (jdbc/execute! db query)))
 
+(defn insert-line! [moves]
+  (let [template "
+insert into lines (move_ids)
+select array_agg(m.id)
+from 
+  (values {{MOVES}}) as t (initial_fen, final_fen)
+  left join positions p1 on t.initial_fen = p1.fen
+  left join positions p2 on t.final_fen = p2.fen
+  left join moves m
+    on p1.id = m.initial_position_id
+    and p2.id = m.final_position_id"
+        moves-param (->> moves
+                         (map (juxt :initial-fen :final-fen))
+                         (map #(apply (partial format "('%s', '%s')") %))
+                         (string/join ", "))
+        query (-> template
+                  (string/replace "{{MOVES}}" moves-param))]
+    (jdbc/execute! db query)))
+
+(defn ingest-line! [fen san-seq]
+  (let [fen-seq (reductions chess/apply-move-san fen san-seq)
+        fen-pairs (partition 2 1 fen-seq)
+        moves (map (fn [[fen1 fen2] san]
+                     {:initial-fen fen1
+                      :final-fen fen2
+                      :san san})
+                   fen-pairs
+                   san-seq)]
+    (insert-positions! fen-seq)
+    (insert-moves! moves)
+    (insert-line! moves)))
+
 (defn ingest-game! [metadata fens]
   (let [fen-pairs (partition 2 1 fens)
         sans (map #(apply (partial chess/diff-fens-as-san) %)

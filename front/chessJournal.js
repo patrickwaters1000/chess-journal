@@ -199,13 +199,16 @@ class Page extends React.Component {
 	//{className: "vflex"},
 	{style: vflexStyle},
 	React.createElement(Metadata, s.game),
+	// Perhaps create react classes for new variation and submit
+	// variation buttons.
 	React.createElement(
 	  "button",
 	  {
-	    onClick: initializeVariation,
-	    visibility: !appState.editingVariation
+	    onClick: (s.editingVariation
+		      ? finalizeVariation
+		      : initializeVariation),
 	  },
-	  "New variation"
+	  (s.editingVariation ? "Submit" : "New variation")
 	),
 	...variations
 	//React.createElement(CommentButtons, {comments: s.comments}),
@@ -228,7 +231,7 @@ const getCurrentPosition = () => {
       "About to get current position. App state = ",
       JSON.stringify(appState)
     );*/
-    let p = v.line[v.ply];
+    let p = v.moves[v.ply];
     return {
       fen: p.fen,
       full_move_counter: p.full_move_counter,
@@ -241,8 +244,8 @@ const pushMove = (move) => {
   let vs = appState.variationStack;
   if (vs.length > 0) {
     let v = vs[vs.length - 1];
-    v.line.push(move);
-    v.ply = v.line.length - 1;
+    v.moves.push(move);
+    v.ply = v.moves.length - 1;
   }
 };
 
@@ -274,10 +277,10 @@ const tryMove = (fromSquare, toSquare) => {
 	setBoard();
 	appState.selectedPieceSquare = null;
 	syncAppState();
-	console.log(
+	/*console.log(
 	  `Adding move ${JSON.stringify(move)} to variation.`
 	  + `App state = ${JSON.stringify(appState)}.`
-	);
+	);*/
       }
     });
 };
@@ -297,9 +300,9 @@ const initializeVariation = () => {
     let v = vs[depth - 1]
     if (v.ply > 0) {
       v.ply -= 1;
-      let m = deepCopy(v.line[v.ply]);
+      let m = deepCopy(v.moves[v.ply]);
       m.san = null;
-      appState.variationStack.push({ply: 0, line: [m]});
+      appState.variationStack.push({ply: 0, moves: [m], line_id: null});
       appState.editingVariation = true;
       setBoard();
       syncAppState();
@@ -309,7 +312,30 @@ const initializeVariation = () => {
 };
 
 const finalizeVariation = () => {
-  // TODO
+  logState("About to finalize variation with state: ");
+  let vs = appState.variationStack;
+  if (vs.length > 0) {
+    let l = vs[vs.length - 1].moves;
+    let data = {
+      fen: l[0].fen,
+      san_seq: l.slice(1).map(d => d.san)
+    };
+    console.log(
+      "Submitting new variation: ",
+      JSON.stringify(data)
+    );
+    fetch('new-variation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=utf-8' },
+      body: JSON.stringify(data)
+    }).then(resp => {
+      console.log("Response to new-variation req: ", resp.text());
+      appState.editingVariation = false;
+      fetch('game')
+	.then(response => response.json())
+	.then(setGame)
+    });
+  }
 };
 
 const setGame = (data) => {
@@ -322,7 +348,8 @@ const setGame = (data) => {
     result: result
   };
   appState.variationStack = [{
-    line: line,
+    moves: line.moves,
+    line_id: line.id,
     ply: 0
   }];
   //appState.comments = data.comments;
@@ -331,29 +358,22 @@ const setGame = (data) => {
 };
 
 const setBoard = () => {
-  /*console.log(
-    "Trying to set board. App state = ",
-    JSON.stringify(appState));*/
   let vs = appState.variationStack;
   let depth = vs.length;
   if (depth > 0) {
     let v = vs[depth - 1];
-    let data = v.line[v.ply];
+    let data = v.moves[v.ply];
     let board = parseFEN(data.fen);
     appState.pieces = getPieces(board);
   }
 };
 
 const nextMove = () => {
-  console.log(
-    "About to move. App state = ",
-    JSON.stringify(appState)
-  );
   let vs = appState.variationStack;
   let depth = vs.length;
   if (depth > 0) {
     let v = vs[depth - 1];
-    if (v.ply + 1 < v.line.length) {
+    if (v.ply + 1 < v.moves.length) {
       v.ply += 1;
       setBoard();
       syncAppState();
@@ -386,18 +406,14 @@ const prevMove = () => {
 }*/
 
 const stepIntoVariation = (line) => {
-  console.log(
-    "Received variation ",
-    JSON.stringify(line)
-  );
   let vs = appState.variationStack;
-  vs.push({ply: 0, line: line});
+  vs.push({ply: 0, moves: line.moves, line_id: line.id});
   setBoard();
   syncAppState();
 };
 
 const loadVariation = (lineId) => {
-  console.log("Fetching variation ", JSON.stringify(lineId));
+  //console.log("Fetching variation ", JSON.stringify(lineId));
   fetch(`line?id=${lineId}`)
     .then(response => response.json())
     .then(stepIntoVariation);
