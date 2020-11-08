@@ -90,6 +90,13 @@ create table comments (
   (create-games-table!)
   (create-comments-table!))
 
+(defn get-position-id [fen]
+  (let [template "select id from positions where fen = '{{FEN}}';"
+        query (string/replace template "{{FEN}}" fen)]
+    (-> (jdbc/query db query)
+        first
+        :id)))
+
 (defn get-all-moves []
   (jdbc/query db "
 select
@@ -273,8 +280,10 @@ from
     (insert-moves! moves)
     (insert-line-and-game! metadata moves)))
 
-(defn ingest-comment! [position-id date text san-seq]
-  (let [fen-seq (reductions chess/apply-move-san
+(defn ingest-comment! [fen san-seq comment-text]
+  (let [position-id (get-position-id fen)
+        date (subs (str (t/now)) 0 10)
+        fen-seq (reductions chess/apply-move-san
                             (get-fen position-id)
                             san-seq)
         move-seq (map (fn [[fen1 fen2] san]
@@ -285,7 +294,7 @@ from
                       san-seq)]
     (insert-positions! fen-seq)
     (insert-moves! move-seq)
-    (insert-line-and-comment! position-id date text move-seq)))
+    (insert-line-and-comment! position-id date comment-text move-seq)))
 
 (defn get-line-sans [line-ids]
   (let [template "
@@ -378,12 +387,7 @@ where m.initial_position_id = {{POSITION_ID}}"
                               (str position-id))]
     (jdbc/query db query)))
 
-(defn get-position-id [fen]
-  (let [template "select id from positions where fen = '{{FEN}}';"
-        query (string/replace template "{{FEN}}" fen)]
-    (-> (jdbc/query db query)
-        first
-        :id)))
+
 
 
 

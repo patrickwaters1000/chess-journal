@@ -66,11 +66,16 @@ const getPieces = (board) => {
 const Metadata = props => React.createElement(
   "div",
   //{className: "vflex"},
-  {style: vflexStyle},
-  React.createElement("p", null, `white: ${props.white}`),
-  React.createElement("p", null, `black: ${props.black}`),
-  React.createElement("p", null, `result: ${props.result}`),
-  React.createElement("p", null, `date: ${props.date}`)
+  {
+    style: {
+      ...vflexStyle,
+      margin: "20px"
+    }
+  },
+  React.createElement("div", null, `white: ${props.white}`),
+  React.createElement("div", null, `black: ${props.black}`),
+  React.createElement("div", null, `result: ${props.result}`),
+  React.createElement("div", null, `date: ${props.date}`)
 );
 
 
@@ -165,7 +170,37 @@ const CommentText = props => {
 };
 */
 
+const Button = (props) => {
+  return React.createElement(
+    "button",
+    { onClick: props.onClick },
+    props.text
+  );
+};
 
+const EditStuffButtons = (props) => {
+  let buttons;
+  if (props.editingVariation) {
+    buttons = [
+      Button({ onClick: finalizeVariation, text: "Submit" }),
+      Button({ onClick: abandonVariation, text: "Cancel" })
+    ];
+  } else {
+    buttons = [
+      Button({ onClick: initializeVariation, text: "New variation"})
+    ];
+  }
+  return React.createElement(
+    "div",
+    {
+      style: {
+	...hflexStyle,
+	margin: "20px"
+      }
+    },
+    ...buttons
+  );
+};
 
 class Page extends React.Component {
   constructor(props) {
@@ -199,17 +234,7 @@ class Page extends React.Component {
 	//{className: "vflex"},
 	{style: vflexStyle},
 	React.createElement(Metadata, s.game),
-	// Perhaps create react classes for new variation and submit
-	// variation buttons.
-	React.createElement(
-	  "button",
-	  {
-	    onClick: (s.editingVariation
-		      ? finalizeVariation
-		      : initializeVariation),
-	  },
-	  (s.editingVariation ? "Submit" : "New variation")
-	),
+	EditStuffButtons({editingVariation: s.editingVariation}),
 	...variations
 	//React.createElement(CommentButtons, {comments: s.comments}),
 	/*React.createElement(
@@ -311,6 +336,17 @@ const initializeVariation = () => {
   }
 };
 
+const abandonVariation = () => {
+  let vs = appState.variationStack;
+  let depth = vs.length;
+  if (depth > 0) {
+    appState.variationStack = vs.slice(0, depth - 1);
+    appState.editingVariation = false;
+    setBoard();
+    syncAppState();
+  }
+};
+
 const finalizeVariation = () => {
   logState("About to finalize variation with state: ");
   let vs = appState.variationStack;
@@ -318,13 +354,14 @@ const finalizeVariation = () => {
     let l = vs[vs.length - 1].moves;
     let data = {
       fen: l[0].fen,
-      san_seq: l.slice(1).map(d => d.san)
+      san_seq: l.slice(1).map(d => d.san),
+      comment_text: window.prompt("Variation comment:")
     };
     console.log(
       "Submitting new variation: ",
       JSON.stringify(data)
     );
-    fetch('new-variation', {
+    fetch('new-annotation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json;charset=utf-8' },
       body: JSON.stringify(data)

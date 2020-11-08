@@ -3,6 +3,7 @@ import React, { Component } from "react";
 const deepCopy = o => JSON.parse(JSON.stringify(o));
 
 const lineStyle = {
+  margin: "20px",
   display: "flex",
   flexWrap: "wrap",
   maxWidth: "300px"

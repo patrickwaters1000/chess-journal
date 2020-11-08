@@ -125,23 +125,15 @@
             :full_move_counter full-move-counter
             :san san
             :variations []})))
-  (POST "/new-variation" {body :body}
+  (POST "/new-annotation" {body :body}
         (let [data (json/parse-string (slurp body))
               fen (sget data "fen")
-              san-seq (sget data "san_seq")]
+              san-seq (sget data "san_seq")
+              comment-text (sget data "comment_text")]
           (println "Adding new variation; data = " data)
-          (db/ingest-line! fen san-seq)
+          (db/ingest-comment! fen san-seq comment-text)
           (reset-multitree!)
-          "ok"))
-  (POST "/add-comment" {body :body}
-        (let [data (slurp body)
-              {:keys [text position-id san]} data]
-          (do (println (format "Received comment %s" data))
-              (db/ingest-comment! position-id
-                                  (subs 0 10 (str (t/now)))
-                                  text
-                                  (string/split san #" "))
-              nil))))
+          "ok")))
 
 (comment
   (+ 1 1)
