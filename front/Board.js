@@ -7,17 +7,17 @@ const getSquareStr = (rank, file) => {
   let fileStr = {
     0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F", 6: "G", 7: "H"
   }[file];
-  return `${fileStr}${8 - rank}`;
+  return `${fileStr}${rank + 1}`;
 };
 
 // not used
-const getSquareMap = (squareStr) => {
+/*const getSquareMap = (squareStr) => {
   let file = {
     "A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5, "G": 6, "H": 7
   }[squareStr.charAt(0)];
   let rank = 8 - parseInt(squareStr.charAt(1));
   return { rank: rank, file: file };
-};
+};*/
 
 const getPieceFn = (points) => {
   return props => {
@@ -191,7 +191,7 @@ export default class Board extends React.Component {
     for (let i = 0; i < 8; i++) {
       for (let j = 0; j < 8; j++) {
 	let isSelected = (props.selectedPieceSquare
-			  == getSquareStr(7 - j, i));
+			  == getSquareStr(j, i));
 	let fill;
 	if (isSelected) {
 	  fill = "#cc0000";
@@ -205,7 +205,7 @@ export default class Board extends React.Component {
 	  {
 	    fill: fill,
 	    x: i * dx,
-	    y: j * dy,
+	    y: (7 - j) * dy,
 	    width: dx,
 	    height: dy,
 	    onClick: () => {

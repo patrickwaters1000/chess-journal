@@ -13,22 +13,36 @@
 ;; This function would be simpler if but a move could only belong to
 ;; one line.
 (defn get-multitree []
-  (reduce (fn [acc row]
-            (let [{:keys [line_id position_id]} row]
-              (update acc
-                      position_id
-                      (fnil update
-                            (select-keys row
-                                         [:fen
-                                          :full_move_counter
-                                          :active_color]))
-                      :line-id->move
-                      (fnil assoc {})
-                      line_id
-                      (select-keys row
-                                   [:move_id
-                                    :san
-                                    :next_position_id]))))
+  (reduce (fn [acc move]
+            (let [{line_id :line_id
+                   fen :initial_fen
+                   position_id :initial_position_id
+                   active_color :initial_active_color
+                   full_move_counter :initial_full_move_counter
+                   move_id :move_id
+                   san :san
+                   next_fen :final_fen
+                   next_position_id :final_position_id
+                   next_active_color :final_active_color
+                   next_full_move_counter :final_full_move_counter} move]
+              (-> acc
+                  (update position_id
+                          (fnil update
+                                {:fen fen
+                                 :active_color active_color
+                                 :full_move_counter full_move_counter
+                                 :line-id->move {}})
+                          :line-id->move
+                          assoc
+                          line_id
+                          {:san san
+                           :next_position_id next_position_id})
+                  (update next_position_id
+                          (fnil identity
+                                {:fen next_fen
+                                 :active_color next_active_color
+                                 :full_move_counter next_full_move_counter
+                                 :line-id->move {}})))))
           {}
           (db/get-all-moves)))
 
@@ -39,26 +53,29 @@
   (reset! multitree (get-multitree)))
 
 (defn get-line-data [line-id]
-  (let [multitree @multitree]
+  (let [multitree @multitree
+        initial_position_id (db/get-line-start-position-id line-id)]
     (loop [acc []
-           position-id (db/get-line-start-position-id line-id)]
-      (let [{:as data
-             :keys [line-id->move]} (get multitree position-id)]
-        (if-not data
-          acc
-          (let [next-move (get line-id->move line-id)
-                variations (->> (dissoc line-id->move line-id)
-                                (map (fn [[line-id move]]
-                                       {:san (:san move)
-                                        :line_id line-id})))]
-            (recur (conj acc
-                         (assoc (select-keys data
-                                             [:fen
-                                              :full_move_counter
-                                              :active_color])
-                                :san (:san next-move)
-                                :variations variations))
-                   (:next_position_id next-move))))))))
+           move {:san nil
+                 :next_position_id initial_position_id}
+           variations []]
+      (let [{position_id :next_position_id} move
+            {:as data
+             :keys [line-id->move]} (get multitree position_id)
+            position-data (select-keys data [:fen
+                                             :active_color
+                                             :full_move_counter])
+            new-acc (conj acc (assoc position-data
+                                     :san (:san move)
+                                     :variations variations))
+            next-move (get line-id->move line-id)
+            next-variations (->> (dissoc line-id->move line-id)
+                            (map (fn [[l m]]
+                                   {:san (:san m)
+                                    :line_id l})))]
+        (if-not next-move
+          new-acc
+          (recur new-acc next-move next-variations))))))
 
 (defn get-game-data [game-id]
   (let [game-data (db/get-game-info game-id)
@@ -67,6 +84,12 @@
 
 ;;(db/get-line-start-position-id 2)
 ;;(get-line-data 1)
+
+(defn sget [m k]
+  (if (contains? (set (keys m)) k)
+    (get m k)
+    (throw (Exception. (format "Map %s does not have key %s"
+                               m k)))))
 
 ;; Gotcha! Can't use select keys :to since the key will be "to"
 (defroutes the-app
@@ -83,17 +106,18 @@
   (POST "/move" {body :body}
         (let [data (json/parse-string (slurp body))
               _ (println "request body: " (str data))
-              fen (:fen data)
+              fen (sget data "fen")
+              to (sget data "to")
+              from (sget data "from")
               ;; what happens if not legal move??
-              san (chess/move-map-to-san
-                   fen {:to (get data "to")
-                        :from (get data "from")})
-              {:keys [active_color
-                      full_move_counter]} (chess/parse-fen fen)]
+              san (chess/move-squares-to-san fen from to)
+              new-fen (chess/apply-move-san fen san)
+              {:keys [active-color
+                      full-move-counter]} (chess/parse-fen new-fen)]
           (json/generate-string
-           {:fen fen
-            :active_color active_color
-            :full_move_counter full_move_counter
+           {:fen new-fen
+            :active_color active-color
+            :full_move_counter full-move-counter
             :san san
             :variations []})))
   (POST "/add-comment" {body :body}
@@ -106,6 +130,15 @@
                                   (string/split san #" "))
               nil))))
 
+(comment
+  (+ 1 1)
+  (chess/move-map-to-san
+   "rnbqkbnr/pppp1ppp/4p3/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2"
+   {:from "D1", :to "D3"})
+  (chess/move-map-to-san
+   "rnbqkbnr/pppp1ppp/4p3/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2"
+   {:to "F6" :from "G8"}))
+
 (defn -main []
   (println "Building multitree...")
   (reset-multitree!)
@@ -113,7 +146,8 @@
   (run-server (rmp/wrap-params the-app) {:port 5000}))
 
 (comment
-  (get-line-data 2)
+  @multitree
+  (get-line-data 1)
   (def app
     (-> app-routes
         ;;(middleware/wrap-json-body)

@@ -96,15 +96,19 @@ select
   l.id as line_id,
   m.id as move_id,
   m.san,
-  p.id as position_id,
-  m.final_position_id as next_position_id,
-  p.fen,
-  p.full_move_counter,
-  p.active_color
+  m.initial_position_id,
+  m.final_position_id,
+  p1.fen as initial_fen,
+  p1.full_move_counter as initial_full_move_counter,
+  p1.active_color as initial_active_color,
+  p2.fen as final_fen,
+  p2.full_move_counter as final_full_move_counter,
+  p2.active_color as final_active_color
 from 
   lines l cross join unnest(move_ids) as t(move_id)
   left join moves m on t.move_id = m.id
-  left join positions p on m.initial_position_id = p.id"))
+  left join positions p1 on m.initial_position_id = p1.id
+  left join positions p2 on m.final_position_id = p2.id"))
 
 (defn get-line-start-position-id [line-id]
   (let [template "

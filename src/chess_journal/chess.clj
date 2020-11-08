@@ -66,7 +66,7 @@
     (.add move-list move)
     (string/trim (.toSan move-list))))
 
-(defn move-map-to-san [fen {:keys [to from]}]
+(defn move-squares-to-san [fen from to]
   (let [move (Move. (Square/valueOf (string/upper-case from))
                     (Square/valueOf (string/upper-case to)))]
     (move-to-san fen move)))

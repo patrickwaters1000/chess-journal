@@ -26,6 +26,10 @@ var appState = {
   selectedPieceSquare: null
 };
 
+const logState = (msg) => {
+  console.log(msg, JSON.stringify(appState));
+};
+
 const parseRank = rank => {
   let a = [];
   rank.split("").forEach(c => {
@@ -219,19 +223,11 @@ class Page extends React.Component {
 const getCurrentPosition = () => {
   let vs = appState.variationStack;
   if (vs.length > 0) {
-    let v;
-    // This is horrible. Fix!
-    // The point is that when starting a new variation the top line on
-    // the stack is empty.
-    if (vs[vs.length - 1].line.length == 0) {
-      v = vs[vs.length - 2];
-    } else {
-      v = vs[vs.length - 1];
-    };
-    console.log(
+    let v = vs[vs.length - 1];
+    /*console.log(
       "About to get current position. App state = ",
       JSON.stringify(appState)
-    );
+    );*/
     let p = v.line[v.ply];
     return {
       fen: p.fen,
@@ -241,11 +237,11 @@ const getCurrentPosition = () => {
   }
 };
 
-const pushPosition = (pos) => {
+const pushMove = (move) => {
   let vs = appState.variationStack;
   if (vs.length > 0) {
     let v = vs[vs.length - 1];
-    v.line.push(pos);
+    v.line.push(move);
     v.ply = v.line.length - 1;
   }
 };
@@ -275,7 +271,13 @@ const tryMove = (fromSquare, toSquare) => {
     .then(move => {
       if (move) {
 	pushMove(move);
+	setBoard();
+	appState.selectedPieceSquare = null;
 	syncAppState();
+	console.log(
+	  `Adding move ${JSON.stringify(move)} to variation.`
+	  + `App state = ${JSON.stringify(appState)}.`
+	);
       }
     });
 };
@@ -288,9 +290,22 @@ const clickSquare = (toSquare) => {
 }
 
 const initializeVariation = () => {
-  appState.variationStack.push({ply: 0, line: []});
-  appState.editingVariation = true;
-  syncAppState();
+  //logState("Before initializing variation: "); 
+  let vs = appState.variationStack;
+  let depth = vs.length;
+  if (depth > 0) {
+    let v = vs[depth - 1]
+    if (v.ply > 0) {
+      v.ply -= 1;
+      let m = deepCopy(v.line[v.ply]);
+      m.san = null;
+      appState.variationStack.push({ply: 0, line: [m]});
+      appState.editingVariation = true;
+      setBoard();
+      syncAppState();
+      //logState("After initializing variation: "); 
+    }
+  }
 };
 
 const finalizeVariation = () => {
@@ -330,6 +345,10 @@ const setBoard = () => {
 };
 
 const nextMove = () => {
+  console.log(
+    "About to move. App state = ",
+    JSON.stringify(appState)
+  );
   let vs = appState.variationStack;
   let depth = vs.length;
   if (depth > 0) {

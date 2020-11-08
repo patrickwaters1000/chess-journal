@@ -14,16 +14,24 @@ const moveStyle = {
   //paddingLeft: "5px"
 }
 
+// INSANE currently full_move_counter and active_color refer to the
+// position after the move, and therefore are not correct for printing
+// the move san.
 const formatMoveText = (props, idx) => {
   let { san,
 	full_move_counter,
 	active_color,
       } = props;
+  let adjusted_active_color = (active_color == "w" ? "b" : "w");
+  let adjusted_full_move_counter = full_move_counter;
+  if (adjusted_active_color == "b") {
+    adjusted_full_move_counter -= 1;
+  }
   let text;
-  if (active_color == "w") {
-    text = `${full_move_counter}. ${san}`;
-  } else if (idx == 0) {
-    text = `${full_move_counter}. .. ${san}`;
+  if (adjusted_active_color == "w") {
+    text = `${adjusted_full_move_counter}. ${san}`;
+  } else if (idx == 1) {
+    text = `${adjusted_full_move_counter}. .. ${san}`;
   } else {
     text = san;
   }
@@ -63,7 +71,8 @@ const MoveGroup = (p, idx, isCurrentMove) => {
 	active_color: p.active_color,
 	stepIntoVariationFn: p.stepIntoVariationFn,
       },
-      0,
+      // Somewhat awkwardly, the first move has idx 1 not 0.
+      1,
       false
     );
   });
@@ -93,13 +102,14 @@ export default class Line extends React.Component {
 	width: 300,
 	style: lineStyle
       },
-      ...line.map((data, idx) => {
+      // First element of line is initial pos w/ no move
+      ...line.slice(1).map((data, idx) => {
 	let p = deepCopy(data);
 	p.stepIntoVariationFn = stepIntoVariationFn;
 	return MoveGroup(
 	  p,
-	  idx,
-	  idx == ply - 1,
+	  idx + 1,
+	  idx + 1 == ply,
 	);
       })
     );
