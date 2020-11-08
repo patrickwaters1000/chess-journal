@@ -22,9 +22,8 @@ var appState = {
   pieces: [],
   game: {white: "", black: "", date: "", result: ""},
   variationStack: [],
-  //comments: [],
-  //selectedCommentIdx: -1,
-  //currentlyEditingComment: false
+  editingVariation: false,
+  selectedPieceSquare: null
 };
 
 const parseRank = rank => {
@@ -162,6 +161,8 @@ const CommentText = props => {
 };
 */
 
+
+
 class Page extends React.Component {
   constructor(props) {
     super(props);
@@ -180,12 +181,28 @@ class Page extends React.Component {
       "div",
       //{className: "hflex"},
       {style: hflexStyle},
-      React.createElement(Board, {pieces: s.pieces}),
+      React.createElement(
+	Board,
+	{
+	  pieces: s.pieces,
+	  selectedPieceSquare: s.selectedPieceSquare,
+	  clickPieceFn: clickPiece,
+	  clickSquareFn: clickSquare
+	}
+      ),
       React.createElement(
 	"div",
 	//{className: "vflex"},
 	{style: vflexStyle},
 	React.createElement(Metadata, s.game),
+	React.createElement(
+	  "button",
+	  {
+	    onClick: initializeVariation,
+	    visibility: !appState.editingVariation
+	  },
+	  "New variation"
+	),
 	...variations
 	//React.createElement(CommentButtons, {comments: s.comments}),
 	/*React.createElement(
@@ -198,6 +215,87 @@ class Page extends React.Component {
     );
   };
 }
+
+const getCurrentPosition = () => {
+  let vs = appState.variationStack;
+  if (vs.length > 0) {
+    let v;
+    // This is horrible. Fix!
+    // The point is that when starting a new variation the top line on
+    // the stack is empty.
+    if (vs[vs.length - 1].line.length == 0) {
+      v = vs[vs.length - 2];
+    } else {
+      v = vs[vs.length - 1];
+    };
+    console.log(
+      "About to get current position. App state = ",
+      JSON.stringify(appState)
+    );
+    let p = v.line[v.ply];
+    return {
+      fen: p.fen,
+      full_move_counter: p.full_move_counter,
+      active_color: p.active_color
+    };
+  }
+};
+
+const pushPosition = (pos) => {
+  let vs = appState.variationStack;
+  if (vs.length > 0) {
+    let v = vs[vs.length - 1];
+    v.line.push(pos);
+    v.ply = v.line.length - 1;
+  }
+};
+
+const clickPiece = (color, square) => {
+  let active_color = getCurrentPosition().active_color;
+  if (color == active_color) {
+    if (appState.selectedPieceSquare != square) {
+      appState.selectedPieceSquare = square;
+    } else {
+      appState.selectedPieceSquare = null;
+    }
+    syncAppState();
+  }
+};
+
+const tryMove = (fromSquare, toSquare) => {
+  fetch('move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json;charset=utf-8' },
+    body: JSON.stringify({
+      from: fromSquare,
+      to: toSquare,
+      fen: getCurrentPosition().fen
+    })
+  }).then(response => response.json())
+    .then(move => {
+      if (move) {
+	pushMove(move);
+	syncAppState();
+      }
+    });
+};
+
+const clickSquare = (toSquare) => {
+  let fromSquare = appState.selectedPieceSquare;
+  if (appState.selectedPieceSquare != null) {
+    tryMove(fromSquare, toSquare);
+  }
+}
+
+const initializeVariation = () => {
+  appState.variationStack.push({ply: 0, line: []});
+  appState.editingVariation = true;
+  syncAppState();
+};
+
+const finalizeVariation = () => {
+  // TODO
+};
 
 const setGame = (data) => {
   //console.log("Received game: ", JSON.stringify(data));
@@ -215,13 +313,6 @@ const setGame = (data) => {
   //appState.comments = data.comments;
   setBoard();
   syncAppState();
-};
-
-// INCOMPLETE
-// not used when loading a game
-// finish when needed
-const setLine = (data) => {
-  null;
 };
 
 const setBoard = () => {
@@ -259,7 +350,7 @@ const prevMove = () => {
     if (v.ply > 0) {
       v.ply -= 1;
     } else {
-      vs = vs.slice(0, depth - 1);
+      appState.variationStack = vs.slice(0, depth - 1);
     }
     setBoard();
     syncAppState();

@@ -66,6 +66,11 @@
     (.add move-list move)
     (string/trim (.toSan move-list))))
 
+(defn move-map-to-san [fen {:keys [to from]}]
+  (let [move (Move. (Square/valueOf (string/upper-case from))
+                    (Square/valueOf (string/upper-case to)))]
+    (move-to-san fen move)))
+
 (defn diff-fens-as-san [fen-1 fen-2]
   (let [board (Board.)]
     (.loadFromFen board fen-1)

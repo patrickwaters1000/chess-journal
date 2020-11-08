@@ -68,7 +68,7 @@
 ;;(db/get-line-start-position-id 2)
 ;;(get-line-data 1)
 
-
+;; Gotcha! Can't use select keys :to since the key will be "to"
 (defroutes the-app
   (GET "/" [] (slurp "dist/chessJournal.html"))
   (GET "/chessJournal.js" [] (slurp "dist/chessJournal.js"))
@@ -77,11 +77,25 @@
            json/generate-string))
   (GET "/line" req
        (let [params (get req :params)
-             line-id (get params "id")]
-         (println "Getting line data for line " line-id)
-         (println "The data is " (str (get-line-data line-id)))
+             line-id (Integer/parseInt (get params "id"))]
          (-> (get-line-data line-id)
              json/generate-string)))
+  (POST "/move" {body :body}
+        (let [data (json/parse-string (slurp body))
+              _ (println "request body: " (str data))
+              fen (:fen data)
+              ;; what happens if not legal move??
+              san (chess/move-map-to-san
+                   fen {:to (get data "to")
+                        :from (get data "from")})
+              {:keys [active_color
+                      full_move_counter]} (chess/parse-fen fen)]
+          (json/generate-string
+           {:fen fen
+            :active_color active_color
+            :full_move_counter full_move_counter
+            :san san
+            :variations []})))
   (POST "/add-comment" {body :body}
         (let [data (slurp body)
               {:keys [text position-id san]} data]

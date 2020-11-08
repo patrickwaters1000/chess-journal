@@ -3,6 +3,22 @@ import React, { Component } from "react";
 const dx = window.innerHeight / 8;
 const dy = window.innerHeight / 8;
 
+const getSquareStr = (rank, file) => {
+  let fileStr = {
+    0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F", 6: "G", 7: "H"
+  }[file];
+  return `${fileStr}${8 - rank}`;
+};
+
+// not used
+const getSquareMap = (squareStr) => {
+  let file = {
+    "A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5, "G": 6, "H": 7
+  }[squareStr.charAt(0)];
+  let rank = 8 - parseInt(squareStr.charAt(1));
+  return { rank: rank, file: file };
+};
+
 const getPieceFn = (points) => {
   return props => {
     const pointsStr = points.map(p => {
@@ -16,7 +32,13 @@ const getPieceFn = (points) => {
       {
 	points: pointsStr,
 	fill: props.color,
-	stroke: "#000000"
+	stroke: "#000000",
+	onClick: () => {
+	  props.clickPieceFn(
+	    (props.color == "#000000" ? "b" : "w"),
+	    getSquareStr(props.rank, props.file)
+	  );
+	}
       }
     );
   };
@@ -142,20 +164,23 @@ const King = getPieceFn([
 ]);
 
 const getPiece = piece => {
-  let {pieceType, rank, file} = piece;
+  let {pieceType, // keys listed for clarity
+       rank,
+       file,
+       clickPieceFn} = piece;
   return {
-    'p': Pawn({rank: rank, file: file, color: "#000000"}),
-    'P': Pawn({rank: rank, file: file, color: "#ffffff"}),
-    'n': Knight({rank: rank, file: file, color: "#000000"}),
-    'N': Knight({rank: rank, file: file, color: "#ffffff"}),
-    'b': Bishop({rank: rank, file: file, color: "#000000"}),
-    'B': Bishop({rank: rank, file: file, color: "#ffffff"}),
-    'r': Rook({rank: rank, file: file, color: "#000000"}),
-    'R': Rook({rank: rank, file: file, color: "#ffffff"}),
-    'q': Queen({rank: rank, file: file, color: "#000000"}),
-    'Q': Queen({rank: rank, file: file, color: "#ffffff"}),
-    'k': King({rank: rank, file: file, color: "#000000"}),
-    'K': King({rank: rank, file: file, color: "#ffffff"}),
+    'p': Pawn({...piece, color: "#000000"}),
+    'P': Pawn({...piece, color: "#ffffff"}),
+    'n': Knight({...piece, color: "#000000"}),
+    'N': Knight({...piece, color: "#ffffff"}),
+    'b': Bishop({...piece, color: "#000000"}),
+    'B': Bishop({...piece, color: "#ffffff"}),
+    'r': Rook({...piece, color: "#000000"}),
+    'R': Rook({...piece, color: "#ffffff"}),
+    'q': Queen({...piece, color: "#000000"}),
+    'Q': Queen({...piece, color: "#ffffff"}),
+    'k': King({...piece, color: "#000000"}),
+    'K': King({...piece, color: "#ffffff"}),
   }[pieceType];
 }
 
@@ -165,14 +190,29 @@ export default class Board extends React.Component {
     const squares = [];
     for (let i = 0; i < 8; i++) {
       for (let j = 0; j < 8; j++) {
+	let isSelected = (props.selectedPieceSquare
+			  == getSquareStr(7 - j, i));
+	let fill;
+	if (isSelected) {
+	  fill = "#cc0000";
+	} else if ((i + j) % 2 == 0) {
+	  fill = "#ffffb3";
+	} else {
+	  fill = "#00b33c";
+	}
 	let square = React.createElement(
 	  "rect",
 	  {
-	    fill: ((i + j) % 2 == 0 ? "#ffffb3" : "#00b33c"),
+	    fill: fill,
 	    x: i * dx,
 	    y: j * dy,
 	    width: dx,
-	    height: dy
+	    height: dy,
+	    onClick: () => {
+	      props.clickSquareFn(
+		getSquareStr(j, i)
+	      );
+	    }
 	  }
 	);
 	squares.push(square);
@@ -185,7 +225,12 @@ export default class Board extends React.Component {
 	height: 8 * dy
       },
       ...squares,
-      ...props.pieces.map(getPiece)
+      ...props.pieces.map(p => {
+	return getPiece({
+	  ...p,
+	  clickPieceFn: props.clickPieceFn
+	});
+      })
     );
   };
 }
