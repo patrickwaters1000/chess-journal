@@ -55,6 +55,13 @@ create table games (
   date timestamp,
   white varchar,
   black varchar,
+  -- white_elo integer,
+  -- black_elo integer,
+  -- time_control varchar,
+  -- termination varchar,
+  -- event varchar,
+  -- round varchar,
+  -- site varchar,
   result real,
   line_id integer,
   constraint fk_line_id
@@ -307,6 +314,11 @@ where l.id in ({{LINE_ID}});"
         query (string/replace template "{{LINE_ID}}" param)]
     (jdbc/query db query)))
 
+(defn get-all-game-info []
+  (jdbc/query db "
+select id, white, black, result, date, line_id 
+from games"))
+
 (defn get-game-info [game-id]
   (let [game-template "
 select white, black, result, date, line_id
@@ -416,44 +428,21 @@ where
                   (string/replace "{{POSITION_ID}}" (str position-id)))]
     (first (jdbc/query db query))))
 
-;;(get-next-move 1 20)
-;;(get-most-recent-game-id)
-
 (comment
+  ;; Ingest games from REPL
+  (def games-data (chess/read-games "pgn/games.pgn"))
+  (->> games-data
+       (map (juxt :metadata :fens))
+       (run! #(apply ingest-game! %)))
+
   (def example-games-file
     (str "/home/patrick/Downloads/"
          "Theonian_vs_pat_hello_1_2020.10.11.pgn"))
-  (def game (chess/read-game example-games-file))
-  (def fens (:fens game))
-  (def metadata (:metadata game))
-  
-  (insert-positions! fens)
-  (def fen-pairs (partition 2 1 fens))
-  (def sans (map #(apply (partial chess/diff-fens-as-san) %)
-                 fen-pairs))
-  (def moves (map (fn [[fen1 fen2] san]
-                    {:initial-fen fen1
-                     :final-fen fen2
-                     :san san})
-                  fen-pairs
-                  sans))
-  (ingest-game! metadata fens)
-  
-  (insert-moves! moves)
-  (def line-id (insert-line! moves))
-  (insert-line-and-game! metadata moves)
-  (let [{:keys [metadata fens san]
-         :as game} (chess/read-game example-games-file)]
-    (chess/diff-fens-as-san
-     chess/initial-fen
-     (nth fens 0)
-     ;;(nth fens 1)
-     )
-    ;;metadata
-    ;(insert-game! game)
-    )
-  nil
-
-  )
+  (let [game (chess/read-game example-games-file)
+        fens (:fens game)
+        metadata (:metadata game)]
+    (ingest-game! metadata fens))
+  (get-all-game-info)
+nil)
 
 

@@ -20,11 +20,12 @@ const getSquareStr = (rank, file) => {
 };*/
 
 const getPieceFn = (points) => {
-  return props => {
+  return (props) => {
     const pointsStr = points.map(p => {
       let [x, y] = p;
+      let adjustedRank = (props.flipBoard ? props.rank : 7 - props.rank);
       let xScaled = (props.file + x ) * dx;
-      let yScaled = (7 - props.rank + 1 - y) * dy;
+      let yScaled = (adjustedRank + 1 - y) * dy;
       return `${xScaled},${yScaled}`;
     }).join(" ");
     return React.createElement(
@@ -195,17 +196,17 @@ export default class Board extends React.Component {
 	let fill;
 	if (isSelected) {
 	  fill = "#cc0000";
-	} else if ((i + j) % 2 == 0) {
-	  fill = "#ffffb3";
-	} else {
+	} else if ((i + j) % 2 == props.flipBoard) {
 	  fill = "#00b33c";
+	} else {
+	  fill = "#ffffb3";
 	}
 	let square = React.createElement(
 	  "rect",
 	  {
 	    fill: fill,
 	    x: i * dx,
-	    y: (7 - j) * dy,
+	    y: (props.flipBoard ? j : (7 - j)) * dy,
 	    width: dx,
 	    height: dy,
 	    onClick: () => {
@@ -228,6 +229,7 @@ export default class Board extends React.Component {
       ...props.pieces.map(p => {
 	return getPiece({
 	  ...p,
+	  flipBoard: props.flipBoard,
 	  clickPieceFn: props.clickPieceFn
 	});
       })

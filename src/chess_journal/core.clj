@@ -52,6 +52,13 @@
 (defn reset-multitree! []
   (reset! multitree (get-multitree)))
 
+(defn get-distinct-line-ids [line-id->variations]
+  (let [san->line-id (reduce-kv (fn [acc k v]
+                                  (assoc acc (:san v) k))
+                                {}
+                                line-id->variations)]
+    (vals san->line-id)))
+
 (defn get-line-data [line-id]
   (let [multitree @multitree
         initial_position_id (db/get-line-start-position-id line-id)]
@@ -69,10 +76,14 @@
                                      :san (:san move)
                                      :variations variations))
             next-move (get line-id->move line-id)
-            next-variations (->> (dissoc line-id->move line-id)
-                            (map (fn [[l m]]
-                                   {:san (:san m)
-                                    :line_id l})))]
+            distinct-line-ids (get-distinct-line-ids line-id->move)
+            next-variations (as-> line-id->move _
+                              (select-keys _ distinct-line-ids)
+                              (dissoc _ line-id)
+                              (map (fn [[l m]]
+                                     {:san (:san m)
+                                      :line_id l})
+                                   _))]
         (if-not next-move
           new-acc
           (recur new-acc next-move next-variations))))))
@@ -99,9 +110,17 @@
 (defroutes the-app
   (GET "/" [] (slurp "dist/chessJournal.html"))
   (GET "/chessJournal.js" [] (slurp "dist/chessJournal.js"))
-  (GET "/game" []
-       (-> (get-game-data 1)
-           json/generate-string))
+  (GET "/games-metadata" []
+       (->> (db/get-all-game-info)
+            (sort-by :date)
+            reverse
+            json/generate-string))
+  (GET "/game" req
+       (let [params (sget req :params)
+             game-id (Integer/parseInt (sget params "id"))]
+         (println "Received request for game " game-id)
+         (-> (get-game-data game-id)
+             json/generate-string)))
   (GET "/line" req
        (let [params (get req :params)
              line-id (Integer/parseInt (get params "id"))]

@@ -2,7 +2,6 @@ import React, { Component } from "react";
 import ReactDOM from "react-dom";
 import Board from "./Board.js";
 import Line from "./Line.js";
-//import './chessJournal.css';
 
 const hflexStyle = {display: "flex", flexDirection: "row"}
 const vflexStyle = {display: "flex", flexDirection: "column"}
@@ -12,7 +11,6 @@ var handle = null;
 const deepCopy = o => JSON.parse(JSON.stringify(o));
 
 const syncAppState = () => {
-  //console.log("Syncing state to ", JSON.stringify(appState));
   handle.setState(deepCopy(appState));
 };
 
@@ -20,10 +18,12 @@ const syncAppState = () => {
 // each map has keys `ply` and `line`.
 var appState = {
   pieces: [],
-  game: {white: "", black: "", date: "", result: ""},
+  gameIdx: null,
+  gamesMetadata: [],
   variationStack: [],
   editingVariation: false,
-  selectedPieceSquare: null
+  selectedPieceSquare: null,
+  flipBoard: false
 };
 
 const logState = (msg) => {
@@ -63,112 +63,75 @@ const getPieces = (board) => {
 };
 
 
-const Metadata = props => React.createElement(
+const GameMetadata1 = (props) => React.createElement(
   "div",
-  //{className: "vflex"},
   {
     style: {
-      ...vflexStyle,
-      margin: "20px"
-    }
+      ...hflexStyle,
+      margin: "20px",
+    },
+    onClick: props.onClick
   },
-  React.createElement("div", null, `white: ${props.white}`),
-  React.createElement("div", null, `black: ${props.black}`),
-  React.createElement("div", null, `result: ${props.result}`),
-  React.createElement("div", null, `date: ${props.date}`)
-);
-
-
-/*const getCommentSummary = (comment) => {
-  console.log(`Comment: ${JSON.stringify(comment)}`);
-  let { text, full_move_counter, active_color, san } = comment;
-  let s1 = strfSingleMove(
-    full_move_counter, active_color, san[0]);
-  let s2 = (text.length <= 13 ? text : `${text.substring(0,10)}...`);
-  return `${s1} ${s2}`;
-};*/
-
-/*
-const CommentButton = props => React.createElement(
-  "button",
-  {
-    onClick: () => {
-      appState.selectedCommentIdx = props.idx;
-      gotoMove(props.full_move_counter, props.active_color);
-      syncAppState();
-    }
-  },
-  getCommentSummary(props)
-);
-*/
-
-/*
-const CommentButtons = props => {
-  let { comments } = props;
-  return React.createElement(
+  React.createElement(
     "div",
-    //{className: "vflex"},
-    {style: vflexStyle},
-    ...props.comments.map(
-      (comment, idx) => React.createElement(
-	CommentButton,
-	{ idx: idx,
-	  text: comment.text,
-	  san: comment.san,
-	  active_color: comment.active_color,
-	  full_move_counter: comment.full_move_counter })
-    )
-  );
-};
-*/
+    {style: vflexStyle },
+    `white: ${props.white}`,
+    `black: ${props.black}`
+  ),
+  React.createElement(
+    "div",
+    {style: vflexStyle },
+    `result: ${props.result}`,
+    `date: ${props.date}`
+  )
+);
 
-/*
-const getVariationString = (fullMoveCounter, activeColor, san) => {
-  var i0, acc;
-  if (activeColor == "w") {
-    i0 = 2;
-    acc = `${fullMoveCounter}. ${san[0]} ${san[1]}`;
+const getResultStr = (result) => {
+  if (result == 0.0) {
+    return "0 - 1";
+  } else if (result == 1.0) {
+    return "1 - 0";
+  } else if (result == 0.5) {
+    return "1/2 - 1/2";
   } else {
-    i0 = 1;
-    acc = `${fullMoveCounter}. .. ${san[1]}`;
+    return "???";
   }
-    let m = fullMoveCounter + 1;
-  for (let i = i0; i < san.length; i += 2) {
-    acc += ` ${m}. ${san[i]} ${san[i+1]}`
-    m += 1;
-  }
-  return acc;
 };
-*/
 
-/*
-const CommentText = props => {
+const GameMetadata2 = (props) => React.createElement(
+  "div",
+  {
+    style: {
+      ...hflexStyle,
+      margin: "5px",
+      padding: "10px",
+      borderStyle: "solid"
+    },
+    onClick: props.onClick
+  },
+  `${props.white} vs ${props.black} `
+    + `/ ${getResultStr(props.result)} `
+    + `/ ${props.date.substring(0, 10)}`
+);
+
+const MetadataPanel = (props) => {
   return React.createElement(
     "div",
-    {style: vflexStyle},
-    React.createElement(
-      "label", {for: "annotation-box"}, "annotation:"),
-    React.createElement(
-      "textarea",
-      {id: "annotation-box", rows: 4, cols: 4, value: props.text}
-    ),
-    React.createElement(
-      "label", {for: "variation-box"}, "variation:"),
-    React.createElement(
-      "textarea",
-      {
-	id: "variation-box",
-	rows: 4,
-	cols: 4,
-	value: getVariationString(
-	  props.fullMoveCounter,
-	  props.activeColor,
-	  props.san
-	)
-      })
+    {
+      style: {
+      ...vflexStyle
+      }
+    },
+    props.gamesMetadata.map(row => GameMetadata2({
+      ...row,
+      onClick: () => {
+	if (!props.gameIdx) {
+	  loadGame(row.id);
+	}
+      }
+    }))
   );
 };
-*/
 
 const Button = (props) => {
   return React.createElement(
@@ -179,17 +142,16 @@ const Button = (props) => {
 };
 
 const EditStuffButtons = (props) => {
-  let buttons;
+  let buttons = [];
   if (props.editingVariation) {
-    buttons = [
-      Button({ onClick: finalizeVariation, text: "Submit" }),
-      Button({ onClick: abandonVariation, text: "Cancel" })
-    ];
+    buttons.push(Button({ onClick: finalizeVariation, text: "Submit" }));
+    buttons.push(Button({ onClick: abandonVariation, text: "Cancel" }));
   } else {
-    buttons = [
+    buttons.push(
       Button({ onClick: initializeVariation, text: "New variation"})
-    ];
+    );
   }
+  buttons.push(Button({ onClick: flipBoard, text: "Flip board" }));
   return React.createElement(
     "div",
     {
@@ -202,6 +164,24 @@ const EditStuffButtons = (props) => {
   );
 };
 
+const GamePanel = (props) => {
+  let gameMetadata = props.gamesMetadata[props.gameIdx];
+  let variations = props.variationStack.map(p => {
+    let p2 = deepCopy(p);
+    p2.stepIntoVariationFn = loadVariation;
+    return React.createElement(Line, p2);
+  });
+  return React.createElement(
+    "div",
+    {
+      style: vflexStyle
+    },
+    React.createElement(GameMetadata2, gameMetadata),
+    EditStuffButtons({editingVariation: props.editingVariation}),
+    ...variations
+  );
+};
+
 class Page extends React.Component {
   constructor(props) {
     super(props);
@@ -211,39 +191,26 @@ class Page extends React.Component {
   
   render() {
     let s = this.state;
-    let variations = s.variationStack.map(p => {
-      let p2 = deepCopy(p);
-      p2.stepIntoVariationFn = loadVariation;
-      return React.createElement(Line, p2);
-    });
+    let panels;
+    if (s.gameIdx) {
+      panels = [GamePanel(s)];
+    } else {
+      panels = [MetadataPanel(s)];
+    }
     return React.createElement(
       "div",
-      //{className: "hflex"},
-      {style: hflexStyle},
+      { style: hflexStyle },
       React.createElement(
 	Board,
 	{
 	  pieces: s.pieces,
+	  flipBoard: s.flipBoard,
 	  selectedPieceSquare: s.selectedPieceSquare,
 	  clickPieceFn: clickPiece,
 	  clickSquareFn: clickSquare
 	}
       ),
-      React.createElement(
-	"div",
-	//{className: "vflex"},
-	{style: vflexStyle},
-	React.createElement(Metadata, s.game),
-	EditStuffButtons({editingVariation: s.editingVariation}),
-	...variations
-	//React.createElement(CommentButtons, {comments: s.comments}),
-	/*React.createElement(
-	  CommentText,
-	  { san: san,
-	    text: text,
-	    activeColor: active_color,
-	    fullMoveCounter: full_move_counter })*/
-      )
+      ...panels
     );
   };
 }
@@ -252,10 +219,6 @@ const getCurrentPosition = () => {
   let vs = appState.variationStack;
   if (vs.length > 0) {
     let v = vs[vs.length - 1];
-    /*console.log(
-      "About to get current position. App state = ",
-      JSON.stringify(appState)
-    );*/
     let p = v.moves[v.ply];
     return {
       fen: p.fen,
@@ -263,6 +226,11 @@ const getCurrentPosition = () => {
       active_color: p.active_color
     };
   }
+};
+
+const flipBoard = () => {
+  appState.flipBoard = !appState.flipBoard;
+  syncAppState();
 };
 
 const pushMove = (move) => {
@@ -302,10 +270,6 @@ const tryMove = (fromSquare, toSquare) => {
 	setBoard();
 	appState.selectedPieceSquare = null;
 	syncAppState();
-	/*console.log(
-	  `Adding move ${JSON.stringify(move)} to variation.`
-	  + `App state = ${JSON.stringify(appState)}.`
-	);*/
       }
     });
 };
@@ -318,7 +282,6 @@ const clickSquare = (toSquare) => {
 }
 
 const initializeVariation = () => {
-  //logState("Before initializing variation: "); 
   let vs = appState.variationStack;
   let depth = vs.length;
   if (depth > 0) {
@@ -331,7 +294,6 @@ const initializeVariation = () => {
       appState.editingVariation = true;
       setBoard();
       syncAppState();
-      //logState("After initializing variation: "); 
     }
   }
 };
@@ -368,30 +330,43 @@ const finalizeVariation = () => {
     }).then(resp => {
       console.log("Response to new-variation req: ", resp.text());
       appState.editingVariation = false;
-      fetch('game')
-	.then(response => response.json())
-	.then(setGame)
+      loadGame(appState.gamesMetadata[appState.gameIdx].id);
     });
   }
 };
 
-const setGame = (data) => {
-  //console.log("Received game: ", JSON.stringify(data));
-  let { white, black, date, result, line } = data;
-  appState.game = {
-    white: white,
-    black: black,
-    date: date,
-    result: result
-  };
-  appState.variationStack = [{
-    moves: line.moves,
-    line_id: line.id,
-    ply: 0
-  }];
-  //appState.comments = data.comments;
-  setBoard();
+const setMetadata = (data) => {
+  appState.gamesMetadata = data;
   syncAppState();
+};
+
+const getGameIdx = (gameId) => {
+  let v;
+  appState.gamesMetadata.forEach((row, idx) => {
+    if (row.id == gameId) {
+      v = idx;
+    }
+  });
+  // DOES NOT WORK IF RETURN INSIDE `forEach`
+  return v;
+};
+
+const loadGame = (gameId) => {
+  console.log("Fetching game ", gameId);
+  fetch(`game?id=${gameId}`)
+    .then(response => response.json())
+    .then(data => {
+      appState.gameIdx = getGameIdx(gameId);
+      let { line } = data;
+      appState.variationStack = [{
+	moves: line.moves,
+	line_id: line.id,
+	ply: 0
+      }];
+      setBoard();
+      syncAppState();
+      console.log("After loading game, gameIdx = ", appState.gameIdx);
+    });
 };
 
 const setBoard = () => {
@@ -450,7 +425,6 @@ const stepIntoVariation = (line) => {
 };
 
 const loadVariation = (lineId) => {
-  //console.log("Fetching variation ", JSON.stringify(lineId));
   fetch(`line?id=${lineId}`)
     .then(response => response.json())
     .then(stepIntoVariation);
@@ -471,7 +445,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const div = document.getElementById("main");
   const page = React.createElement(Page, appState);
   ReactDOM.render(page, div);  
-  fetch('game')
+  fetch('games-metadata')
     .then(response => response.json())
-    .then(setGame);
+    .then(setMetadata);
 });

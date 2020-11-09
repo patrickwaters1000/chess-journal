@@ -78,16 +78,14 @@ const MoveGroup = (p, idx, isCurrentMove) => {
     );
   });
   if (variations.length == 0) {
-    return move;
+    return [move];
   } else {
-    return React.createElement(
-      "div",
-      { style: moveStyle },
+    return [
       move,
       "(",
       ...variations,
       ")"
-    );
+    ];  
   }
 };
   
@@ -96,6 +94,20 @@ export default class Line extends React.Component {
     let {
       moves, ply, stepIntoVariationFn
     } = this.props;
+    let children = [];
+    // First element of line is initial pos w/ no move
+    moves.slice(1).forEach((data, idx) => {
+      let p = deepCopy(data);
+      p.stepIntoVariationFn = stepIntoVariationFn;
+      children = [
+	...children,
+	...MoveGroup(
+	  p,
+	  idx + 1,
+	  idx + 1 == ply,
+	)
+      ];
+    });
     return React.createElement(
       "div",
       {
@@ -103,16 +115,7 @@ export default class Line extends React.Component {
 	width: 300,
 	style: lineStyle
       },
-      // First element of line is initial pos w/ no move
-      ...moves.slice(1).map((data, idx) => {
-	let p = deepCopy(data);
-	p.stepIntoVariationFn = stepIntoVariationFn;
-	return MoveGroup(
-	  p,
-	  idx + 1,
-	  idx + 1 == ply,
-	);
-      })
+      ...children
     );
   }
 }

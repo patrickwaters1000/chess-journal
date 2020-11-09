@@ -37,6 +37,10 @@
        (cons (.getFen board*)
              (lazy-seq (get-fen-seq board* (rest moves))))))))
 
+(let [h (PgnHolder. "pgn/games.pgn")
+        _ (.loadPgn h)]
+  (first (.getGame h)))
+
 (defn read-game [file]
   (let [h (PgnHolder. file)
         _ (.loadPgn h)
@@ -44,6 +48,19 @@
         moves (iterator-seq (.. game getHalfMoves iterator))]
     {:metadata (get-metadata game)
      :fens (cons initial-fen (get-fen-seq moves))}))
+
+(defn parse-game [game]
+  (let [moves (iterator-seq (.. game getHalfMoves iterator))]
+    {:metadata (get-metadata game)
+     :fens (cons initial-fen (get-fen-seq moves))}))
+
+(defn read-games [file]
+  (let [h (PgnHolder. file)
+        _ (.loadPgn h)
+        ;; Despite it's name, `getGame` returns an array containing
+        ;; all the games in the file.
+        games (.getGame h)]
+    (mapv parse-game games)))
 
 (defn apply-move-map [fen {:keys [from to]}]
   (let [board (Board.)
