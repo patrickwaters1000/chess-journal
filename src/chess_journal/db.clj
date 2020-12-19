@@ -124,6 +124,14 @@ from
   left join positions p1 on m.initial_position_id = p1.id
   left join positions p2 on m.final_position_id = p2.id"))
 
+(defn get-all-comments []
+  (jdbc/query db "
+select 
+  line_id, 
+  text
+from 
+  comments"))
+
 (defn get-line-start-position-id [line-id]
   (let [template "
 with first_move_id as (
@@ -430,7 +438,9 @@ where
 
 (comment
   ;; Ingest games from REPL
-  (def games-data (chess/read-games "pgn/games.pgn"))
+  (def games-data
+    (chess/read-games
+     "pgn/chess_com_games_2020-11-09.pgn"))
   (->> games-data
        (map (juxt :metadata :fens))
        (run! #(apply ingest-game! %)))

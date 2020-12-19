@@ -24,7 +24,8 @@ const getPieceFn = (points) => {
     const pointsStr = points.map(p => {
       let [x, y] = p;
       let adjustedRank = (props.flipBoard ? props.rank : 7 - props.rank);
-      let xScaled = (props.file + x ) * dx;
+      let adjustedFile = (props.flipBoard ? 7 - props.file : props.file);
+      let xScaled = (adjustedFile + x ) * dx;
       let yScaled = (adjustedRank + 1 - y) * dy;
       return `${xScaled},${yScaled}`;
     }).join(" ");
@@ -196,7 +197,7 @@ export default class Board extends React.Component {
 	let fill;
 	if (isSelected) {
 	  fill = "#cc0000";
-	} else if ((i + j) % 2 == props.flipBoard) {
+	} else if ((i + j) % 2 == 0) {
 	  fill = "#00b33c";
 	} else {
 	  fill = "#ffffb3";
@@ -205,7 +206,7 @@ export default class Board extends React.Component {
 	  "rect",
 	  {
 	    fill: fill,
-	    x: i * dx,
+	    x: (props.flipBoard ? (7 - i) : i) * dx,
 	    y: (props.flipBoard ? j : (7 - j)) * dy,
 	    width: dx,
 	    height: dy,

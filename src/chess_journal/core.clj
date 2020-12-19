@@ -52,6 +52,18 @@
 (defn reset-multitree! []
   (reset! multitree (get-multitree)))
 
+(defn get-line-id->comment-text []
+  (reduce (fn [acc {:keys [line_id text]}]
+            (assoc acc line_id text))
+          {}
+          (db/get-all-comments)))
+
+(def line-id->comment-text
+  (atom nil))
+
+(defn reset-line-id->comment-text! []
+  (reset! line-id->comment-text (get-line-id->comment-text)))
+
 (defn get-distinct-line-ids [line-id->variations]
   (let [san->line-id (reduce-kv (fn [acc k v]
                                   (assoc acc (:san v) k))
@@ -125,6 +137,7 @@
        (let [params (get req :params)
              line-id (Integer/parseInt (get params "id"))]
          (-> {:id line-id
+              :comment (get @line-id->comment-text line-id)
               :moves (get-line-data line-id)}
              json/generate-string)))
   (POST "/move" {body :body}
@@ -152,6 +165,7 @@
           (println "Adding new variation; data = " data)
           (db/ingest-comment! fen san-seq comment-text)
           (reset-multitree!)
+          (reset-line-id->comment-text!)
           "ok")))
 
 (comment
@@ -164,6 +178,7 @@
    {:to "F6" :from "G8"}))
 
 (defn -main []
+  (reset-line-id->comment-text!)
   (println "Building multitree...")
   (reset-multitree!)
   (println "Ready!")

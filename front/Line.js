@@ -5,9 +5,15 @@ const deepCopy = o => JSON.parse(JSON.stringify(o));
 const lineStyle = {
   margin: "20px",
   display: "flex",
-  flexWrap: "wrap",
+  flexDirection: "column",
   maxWidth: "300px"
 };
+
+const variationStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  maxWidth: "300px"
+}
 
 const moveStyle = {
   marginLeft: "5px",
@@ -115,7 +121,16 @@ export default class Line extends React.Component {
 	width: 300,
 	style: lineStyle
       },
-      ...children
+      React.createElement(
+	"div",
+	null,
+	this.props.comment
+      ),
+      React.createElement(
+	"div",
+	{ style: variationStyle },
+	...children
+      )
     );
   }
 }

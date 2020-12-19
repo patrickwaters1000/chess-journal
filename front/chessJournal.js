@@ -419,7 +419,13 @@ const prevMove = () => {
 
 const stepIntoVariation = (line) => {
   let vs = appState.variationStack;
-  vs.push({ply: 0, moves: line.moves, line_id: line.id});
+  console.log("stepping into line with comment ${line.comment}");
+  vs.push({
+    ply: 0,
+    moves: line.moves,
+    line_id: line.id,
+    comment: line.comment
+  });
   setBoard();
   syncAppState();
 };
