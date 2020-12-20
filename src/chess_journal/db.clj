@@ -83,7 +83,17 @@ create table comments (
     foreign key(line_id)
     references lines(id));"))
 
-
+(defn create-drills-table! []
+  (jdbc/execute! db "
+create table drills (
+  id serial primary key,
+  name text,
+  tags text[],
+  description text,
+  line_id integer,
+  prompts text[],
+  annotations text[]
+);"))
 
 (defn reset-db! []
   (jdbc/execute! db "drop table if exists comments;")
@@ -91,11 +101,13 @@ create table comments (
   (jdbc/execute! db "drop table if exists lines;")
   (jdbc/execute! db "drop table if exists moves;")
   (jdbc/execute! db "drop table if exists positions;")
+  (jdbc/execute! db "drop table if exists drills;")
   (create-positions-table!)
   (create-moves-table!)
   (create-lines-table!)
   (create-games-table!)
-  (create-comments-table!))
+  (create-comments-table!)
+  (create-drills-table!))
 
 (defn get-position-id [fen]
   (let [template "select id from positions where fen = '{{FEN}}';"
@@ -249,6 +261,53 @@ from new_line"
     (println query)
     (jdbc/execute! db query)))
 
+(defn insert-line-and-drill!
+  [& {:keys [moves
+             drill-name
+             description
+             tags
+             prompts
+             annotations]}]
+  (let [template "
+with new_line as (
+insert into lines (move_ids)
+select array_agg(m.id)
+from 
+  (values {{MOVES}}) as t (initial_fen, final_fen)
+  left join positions p1 on t.initial_fen = p1.fen
+  left join positions p2 on t.final_fen = p2.fen
+  left join moves m
+    on p1.id = m.initial_position_id
+    and p2.id = m.final_position_id
+returning id)
+insert into drills (name, description, tags, prompts, annotations, line_id)
+select {{METADATA}}, id
+from new_line"
+        tags-str (->> tags
+                      (map #(format "'%s'" %))
+                      (string/join ", "))
+        prompts-str (->> prompts
+                         (map #(format "'%s'" %))
+                         (string/join ", "))
+        annotations-str (->> annotations
+                             (map #(format "'%s'" %))
+                             (string/join ", "))
+        metadata-param (format "'%s', '%s', array[%s]::text[], array[%s]::text[], array[%s]::text[]"
+                               drill-name
+                               description
+                               tags-str
+                               prompts-str
+                               annotations-str)
+        moves-param (->> moves
+                         (map (juxt :initial-fen :final-fen))
+                         (map #(apply (partial format "('%s', '%s')") %))
+                         (string/join ", "))
+        query (-> template
+                  (string/replace "{{METADATA}}" metadata-param)
+                  (string/replace "{{MOVES}}" moves-param))]
+    (println query)
+    (jdbc/execute! db query)))
+
 (defn insert-line! [moves]
   (let [template "
 insert into lines (move_ids)
@@ -280,6 +339,80 @@ from
     (insert-positions! fen-seq)
     (insert-moves! moves)
     (insert-line! moves)))
+
+(defn ingest-drill!
+  [& {:keys [drill-name
+             description
+             tags
+             initial-fen
+             san-seq
+             prompts
+             annotations]}]
+  (let [fen-seq (reductions chess/apply-move-san initial-fen san-seq)
+        fen-pairs (partition 2 1 fen-seq)
+        moves (map (fn [[fen1 fen2] san]
+                     {:initial-fen fen1
+                      :final-fen fen2
+                      :san san})
+                   fen-pairs
+                   san-seq)]
+    (insert-positions! fen-seq)
+    (insert-moves! moves)
+    (insert-line-and-drill!
+     :moves moves
+     :drill-name drill-name
+     :description description
+     :tags tags
+     :prompts prompts
+     :annotations annotations)))
+
+(defn get-drills-metadata [])
+
+(defn get-drill [id]
+  (jdbc/query db "
+select
+  d.id as drill_id,
+  d.name as name,
+  array_to_string(d.tags, ',') as tags,
+  d.description as description,
+  d.
+"))
+
+(comment
+  (jdbc/execute! db "drop table example")
+  (dbbc/execute! db )
+  nil)
+
+(def result (jdbc/query db "select * from drills"))
+
+(require '[clojure.reflect :as r])
+(r/reflect
+ (-> (first result)
+    :tags))
+(.getArray
+ (-> (first result)
+    :tags))
+
+(comment
+  (ingest-drill! :drill-name "Basic Sicilian"
+                 :description "Line defining the Sicilian defence"
+                 :tags ["Openings" "Sicilian"]
+                 :initial-fen chess/initial-fen
+                 :san-seq ["e4" "c5"]
+                 :prompts []
+                 :annotations [])
+  (ingest-drill! :drill-name "Basic Sicilian Najdorf"
+                 :description "Line defining the Najdorf variation"
+                 :tags ["Openings" "Sicilian" "Najdorf"]
+                 :initial-fen chess/initial-fen
+                 :san-seq ["e4" "c5"
+                           "Nf3" "d6"
+                           "d4" "cxd4"
+                           "Nxd4" "Nf6"
+                           "Nc3" "a6"]
+                 :prompts []
+                 :annotations [])
+  nil)
 
 (defn ingest-game! [metadata fens]
   (let [fen-pairs (partition 2 1 fens)
