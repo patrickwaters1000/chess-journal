@@ -1,7 +1,7 @@
 const path = require('path');
 const HtmlWebPackPlugin = require("html-webpack-plugin");
 
-const page = 'chessJournal';
+const page = 'ChessDrills';
 
 module.exports = {
   entry: `./front/${page}.js`,
