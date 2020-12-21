@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import ReactDOM from "react-dom";
 import Board from "./Board.js";
 import { getPiecesFromFen } from "./Fen.js";
+import { drills } from "./load-drills.js";
 
 const hflexStyle = {display: "flex", flexDirection: "row"}
 const vflexStyle = {display: "flex", flexDirection: "column"}
@@ -107,23 +108,32 @@ const tryMove = (fromSquare, toSquare) => {
   }
 };
 
-const beginDrill = (drill) => {
-  appState.drill = drill;
+const beginRandomDrill = () => {
+  let n = drills.length;
+  let idx = Math.floor(Math.random() * n);
+  appState.drill = drills[idx];
   appState.drillFrameIdx = 0;
-  drillFramePreStage();
+  drillFramePreStage(
+    1000 // Wait 1s
+  );
 };
 
 const advanceDrillFrame = () => {
   let s = appState;
   let maxFrameIdx = s.drill.frames.length - 1;
-  if (s.drillFrameIdx < maxFrameIdx
-      && s.drillFrameStage == "post") {
-    s.drillFrameIdx += 1;
-    drillFramePreStage();
+  if (s.drillFrameStage == "post") {
+    if (s.drillFrameIdx < maxFrameIdx) {
+      s.drillFrameIdx += 1;
+      drillFramePreStage(
+	0 // No delay
+      );
+    } else {
+      beginRandomDrill();
+    }
   }
 };
 
-const drillFramePreStage = () => {
+const drillFramePreStage = (delayMillis) => {
   let s = appState;
   let f = s.drill.frames[s.drillFrameIdx];
   s.drillFrameStage = "pre";
@@ -134,7 +144,7 @@ const drillFramePreStage = () => {
   syncAppState();
   setTimeout(
     drillFrameMainStage,
-    1000
+    delayMillis
   );
 };
 
@@ -164,10 +174,6 @@ const drillFramePostStage = () => {
 const logState = (msg) => {
   console.log(msg, JSON.stringify(appState));
 };
-
-function isFunction(functionToCheck) {
- return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
-}
 
 class Page extends React.Component {
   constructor(props) {
@@ -226,5 +232,5 @@ window.addEventListener("DOMContentLoaded", () => {
   const div = document.getElementById("main");
   const page = React.createElement(Page, appState);
   ReactDOM.render(page, div);  
-  beginDrill(exampleDrill);
+  beginRandomDrill();
 });
