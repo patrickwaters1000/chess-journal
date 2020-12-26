@@ -19,8 +19,9 @@
            "O-O" "O-O"
            "Nxc6"]
  :initial-ply 8
- :answer-comments
- ["Black is bunkering down like a Philidor defence, recover the pawn and play for positional pressure"
+ :comments
+ [""
+  "Black is bunkering down like a Philidor defence, recover the pawn and play for positional pressure"
   ""
   ""])
 
@@ -37,14 +38,12 @@
        "f4" "Bg4"
        "Be3"]
  :initial-ply 10
- :answer-comments
- ["e2 is a great square for the bishop in the Philidor defence."
-  "g5 is coming eventually. Black would really be in trouble if he plays Bh5 here."
-  "Note that Black an eventual d5 would provoke e5."
-  ""]
- :question-comments
+ :comments
  [""
-  "Black should have taken on e2. How can you make him regret it?"])
+  "e2 is a typical square for the bishop in this opening."
+  "Black should have taken on e2. How can you make him regret it?"
+  "g5 is coming eventually. Black would really be in trouble if he plays Bh5 here."
+  "Note that Black an eventual d5 would provoke e5."])
 
 (add-drill!
  :name "Philidor defence 2"
@@ -59,8 +58,9 @@
            "O-O" "Be7"
            "Nf5"]
  :initial-ply 10
- :answer-comments
+ :comments
  [""
+  ""
   ""
   "No hurry, make Black suffer in the Philidor with positional pressure."
   "Excellent square for the knight!"])
@@ -80,9 +80,10 @@
            "Ng3" "c6"
            "Qd2"]
  :initial-ply 10
- :answer-comments
+ :comments
  [""
-  "Always put the knight there!"
+  ""
+  "Nice square for the knight!"
   ""
   "We want to play f4, so not Bf4."
   "Defending the pawn. With the rook on e8, White can run into tactics if he undefends the bishop on e3."

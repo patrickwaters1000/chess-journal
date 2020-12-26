@@ -26,7 +26,8 @@ const nullDrill = {
   tags: [],
   frames: [{
     fen0: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-    active_color: "w"
+    active_color: "w",
+    comment: ""
   }]
 };
 
@@ -34,11 +35,15 @@ const appState = {
   pieces: [],
   drillIdx: 0,
   drill: nullDrill,
-  drillFrameIdx: null,
+  drillFrameIdx: 0,
   drillFrameStage: null,
   selectedPieceSquare: null,
   active_color: null,
   flipBoard: null,
+};
+
+const logDrill = (msg) => {
+  console.log(msg, JSON.stringify(appState.drill));
 };
 
 const clickPiece = (color, square) => {
@@ -46,18 +51,13 @@ const clickPiece = (color, square) => {
   let s = appState;
   if (s.drillFrameStage == "main"
       && color == s.active_color) {
-    console.log(`Tryin to do something with square = ${square}`);
     if (s.selectedPieceSquare != square) {
       s.selectedPieceSquare = square;
     } else {
       s.selectedPieceSquare = null;
     }
     syncAppState();
-  } else {
-    console.log(`frame stage = ${s.drillFrameStage}`);
-    console.log(`piece color = ${color}`);
-    console.log(`active color = ${s.active_color}`);
-  }
+  } 
 };
 
 const clickSquare = (toSquare) => {
@@ -65,12 +65,7 @@ const clickSquare = (toSquare) => {
   let fromSquare = s.selectedPieceSquare;
   if (s.drillFrameStage == "main"
       && s.selectedPieceSquare != null) {
-    console.log(`Trying to move from ${fromSquare} to ${toSquare}`);
     tryMove(fromSquare, toSquare);
-  } else {
-    console.log(`frame stage = ${s.drillFrameStage}`);
-    console.log(`to square = ${toSquare}`);
-    console.log(`selected square = ${s.selectedPieceSquare}`);
   }
 }
 
@@ -82,7 +77,6 @@ const tryMove = (fromSquare, toSquare) => {
       && a.to == toSquare) {
     drillFramePostStage();
   } else {
-    console.log("Wrong answer!");
     s.selectedPieceSquare = null;
     syncAppState();
   }
@@ -93,6 +87,7 @@ const beginDrill = () => {
   let idx = appState.drillIdx % n;
   //let idx = Math.floor(Math.random() * n);
   appState.drill = drills[idx];
+  logDrill("Beginning this drill:\n");
   appState.drillFrameIdx = 0;
   drillFramePreStage(
     1000 // Wait 1s
@@ -160,10 +155,6 @@ const boxStyle = {
   width: "300px"
 };
 
-const logState = (msg) => {
-  console.log(msg, JSON.stringify(appState));
-};
-
 const makeBox = (msg, height) => {
   return React.createElement(
     "div",
@@ -188,18 +179,10 @@ class Page extends React.Component {
     let s = this.state;
     let f = s.drill.frames[s.drillFrameIdx];
     let boxes = [
-      makeBox(s.drill.drillName, 100),
-      makeBox(s.drill.description, 100)
+      makeBox(s.drill.name, 100),
+      makeBox(s.drill.description, 100),
+      makeBox(f.comment, 100)
     ];
-    if (s.drillFrameStage == "main") {
-      boxes.push(
-	makeBox(f.question_comment, 100)
-      );
-    } else if (s.drillFrameStage == "post") {
-      boxes.push(
-	makeBox(f.answer_comment, 100)
-      );
-    }
     return React.createElement(
       "div",
       { style: hflexStyle },

@@ -21,15 +21,12 @@
            "O-O" "Be7"
            "Qe2" "O-O"]
  :initial-ply 3
- :answer-comments
+ :comments
  ["An active fighting defence. This is Black's strongest response to the Alapin."
+  "Any move except 3. e5, and White has lost the first move advantage. White has a variety of options but, and Black can play a dragon setup against essentially all of them."
   ""
   ""
-  ""
-  "This is a critical move. I don't really understand why though."]
- :question-comments
- [""
-  "Any move except 3. e5, and White has lost the first move advantage. White has a variety of options but, and Black can play a dragon setup against essentially all of them."])
+  "TODO Why is this a good move?"])
 
 (add-drill!
  :name "Alapin 2"
@@ -60,8 +57,8 @@
  :initial-ply 7)
 
 (add-drill!
- :name "Alapin bogus sac 1"
- :description ""
+ :name "Alapin dubious sac 1"
+ :description "White may have chances to sac on f7 in the Alapin. These sacrifices are usually unsound, but can be quite difficult to defend."
  :tags ["Sicilian defence" "Alapin" "Defend sacrifice"]
  :san-seq ["e4" "c5"
            "c3" "Nf6"

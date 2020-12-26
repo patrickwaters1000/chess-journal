@@ -10,7 +10,7 @@
                          san fen))))))
 
 (defn generate-frames
-  [& {:keys [san-seq initial-ply question-comments answer-comments]}]
+  [& {:keys [san-seq initial-ply comments]}]
   (assert (pos? initial-ply))
   (assert (odd? (- (count san-seq) initial-ply))
           (format (str "Length of san seq is %s, initial ply is %s, "
@@ -24,10 +24,9 @@
                        (partition 2))]
     (->> (map vector
               san-pairs
-              (concat (or question-comments []) (repeat nil))
-              (concat (or answer-comments []) (repeat nil)))
+              (concat (or comments []) (repeat nil)))
          (reduce (fn [{:keys [fen frames]}
-                      [[san-1 san-2] question-comment answer-comment]]
+                      [[san-1 san-2] comment]]
                    (let [fen-1 (chess/apply-move-san fen san-1)
                          fen-2 (chess/apply-move-san fen-1 san-2)
                          answer-move (chess/get-move-to-and-from
@@ -36,8 +35,7 @@
                   :frames (conj frames
                                 {:active_color color
                                  :answer_move answer-move
-                                 :question_comment question-comment
-                                 :answer_comment answer-comment
+                                 :comment comment
                                  :fen0 fen
                                  :fen1 fen-1
                                  :fen2 fen-2})}))
@@ -51,8 +49,7 @@
              tags
              san-seq
              initial-ply
-             question-comments
-             answer-comments]
+             comments]
       :as opts}]
   {:name (or name "")
    :description (or description "")
