@@ -78,6 +78,18 @@
     (.doMove board (.removeFirst move-list))
     (.getFen board)))
 
+(defn get-move-to-and-from [fen san]
+  (let [board (Board.)
+        move-list (MoveList. fen)]
+    (.loadFromFen board fen)
+    (.loadFromSan move-list san)
+    {:from (str (.getFrom (first move-list)))
+     :to (str (.getTo (first move-list)))}))
+
+(comment
+  (get-move-to-and-from initial-fen "e4")
+  nil)
+
 (defn- move-to-san [fen move]
   (let [move-list (MoveList. fen)]
     (.add move-list move)

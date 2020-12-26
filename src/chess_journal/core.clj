@@ -1,8 +1,6 @@
 (ns chess-journal.core
   (:require [clojure.string :as string]
             [compojure.core :refer :all]
-            ;;[compojure.route :as route]
-            ;;[ring.middleware.defaults :refer [wrap-defaults api-defaults]]
             [ring.middleware.params :as rmp]
             [org.httpkit.server :refer [run-server]]
             [clj-time.core :as t]
@@ -109,9 +107,6 @@
            {:id line-id
             :moves line-data})))
 
-;;(db/get-line-start-position-id 2)
-;;(get-line-data 1)
-
 (defn sget [m k]
   (if (contains? (set (keys m)) k)
     (get m k)
@@ -166,16 +161,10 @@
           (db/ingest-comment! fen san-seq comment-text)
           (reset-multitree!)
           (reset-line-id->comment-text!)
-          "ok")))
-
-(comment
-  (+ 1 1)
-  (chess/move-map-to-san
-   "rnbqkbnr/pppp1ppp/4p3/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2"
-   {:from "D1", :to "D3"})
-  (chess/move-map-to-san
-   "rnbqkbnr/pppp1ppp/4p3/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2"
-   {:to "F6" :from "G8"}))
+          "ok"))
+  (GET "/all-drills" []
+       (json/generate-string
+        (db/get-all-drills))))
 
 (defn -main []
   (reset-line-id->comment-text!)
@@ -183,24 +172,3 @@
   (reset-multitree!)
   (println "Ready!")
   (run-server (rmp/wrap-params the-app) {:port 5000}))
-
-(comment
-  @multitree
-  (get-line-data 1)
-  (def app
-    (-> app-routes
-        ;;(middleware/wrap-json-body)
-        ;;(middleware/wrap-json-response)
-        (rmp/wrap-params)
-        (wrap-defaults api-defaults)
-        ;;(wrap-defaults app-routes api-defaults))
-        )))
-
-(comment
-  (defn move-counter-to-ply [{:keys [active-color full-move-counter]}]
-    (+ (* 2 (dec full-move-counter))
-       (if (= "b" active-color) 1 0)))
-
-  (defn ply-to-move-counter [ply]
-    {:full-move-counter (inc (quot ply 2))
-     :active-color (if (even? ply) "w" "b")}))

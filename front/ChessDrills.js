@@ -15,31 +15,10 @@ const syncAppState = () => {
   handle.setState(deepCopy(appState));
 };
 
-var exampleDrill = {
-  name: "Sicilian defence",
-  description: "Demonstrates the move defining the Sicilian defence",
-  tags: ["Openings", "Sicilian"],
-  frames: [
-    {
-      fen0: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      fen1: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
-      fen2: "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2",
-      active_color: "b",
-      answer_move: {from: "C7", to: "C5"},
-      question_comment: "What is the first move of the Sicilian defense?",
-      answer_comment: "Yes! This is a popular opening for Black."
-    },
-    {
-      fen0: "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2",
-      fen1: "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
-      fen2: "rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
-      active_color: "b",
-      answer_move: {from: "D7", to: "D6"},
-      question_comment: "What is the second move of the Sicilian defense (Najdorf variation)?",
-      answer_comment: "Correct! This move discourages White from playing e5."
-    }
-  ]
-};
+//const randomPermutation = (n) => {
+// use array splice
+// the point is to shuffle the drills.
+//}  
 
 const nullDrill = {
   name: "",
@@ -53,6 +32,7 @@ const nullDrill = {
 
 const appState = {
   pieces: [],
+  drillIdx: 0,
   drill: nullDrill,
   drillFrameIdx: null,
   drillFrameStage: null,
@@ -108,9 +88,10 @@ const tryMove = (fromSquare, toSquare) => {
   }
 };
 
-const beginRandomDrill = () => {
+const beginDrill = () => {
   let n = drills.length;
-  let idx = Math.floor(Math.random() * n);
+  let idx = appState.drillIdx % n;
+  //let idx = Math.floor(Math.random() * n);
   appState.drill = drills[idx];
   appState.drillFrameIdx = 0;
   drillFramePreStage(
@@ -128,7 +109,8 @@ const advanceDrillFrame = () => {
 	0 // No delay
       );
     } else {
-      beginRandomDrill();
+      s.drillIdx += 1;
+      beginDrill();
     }
   }
 };
@@ -171,8 +153,28 @@ const drillFramePostStage = () => {
 };
 
 
+const boxStyle = {
+  margin: "5px",
+  padding: "10px",
+  borderStyle: "solid",
+  width: "300px"
+};
+
 const logState = (msg) => {
   console.log(msg, JSON.stringify(appState));
+};
+
+const makeBox = (msg, height) => {
+  return React.createElement(
+    "div",
+    {
+      style: {
+	...boxStyle,
+	height: `${height}px`
+      }
+    },
+    msg
+  );
 };
 
 class Page extends React.Component {
@@ -186,16 +188,16 @@ class Page extends React.Component {
     let s = this.state;
     let f = s.drill.frames[s.drillFrameIdx];
     let boxes = [
-      React.createElement("div", {}, s.drill.name),
-      React.createElement("div", {}, s.drill.description)
+      makeBox(s.drill.drillName, 100),
+      makeBox(s.drill.description, 100)
     ];
     if (s.drillFrameStage == "main") {
       boxes.push(
-	React.createElement("div", {}, f.question_comment)
+	makeBox(f.question_comment, 100)
       );
     } else if (s.drillFrameStage == "post") {
       boxes.push(
-	React.createElement("div", {}, f.answer_comment)
+	makeBox(f.answer_comment, 100)
       );
     }
     return React.createElement(
@@ -232,5 +234,5 @@ window.addEventListener("DOMContentLoaded", () => {
   const div = document.getElementById("main");
   const page = React.createElement(Page, appState);
   ReactDOM.render(page, div);  
-  beginRandomDrill();
+  beginDrill();
 });
