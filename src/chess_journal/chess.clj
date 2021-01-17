@@ -62,10 +62,29 @@
         games (.getGame h)]
     (mapv parse-game games)))
 
-(defn apply-move-map [fen {:keys [from to]}]
+(defn get-promote-piece [to-square promote]
+  (let [rank (Integer/parseInt (subs to-square 1 2))]
+    (case rank
+      8 (case promote
+          "N" Piece/WHITE_KNIGHT
+          "B" Piece/WHITE_BISHOP
+          "R" Piece/WHITE_ROOK
+          "Q" Piece/WHITE_QUEEN)
+      1 (case promote
+          "N" Piece/BLACK_KNIGHT
+          "B" Piece/BLACK_BISHOP
+          "R" Piece/BLACK_ROOK
+          "Q" Piece/BLACK_QUEEN))))
+
+(defn apply-move-map [fen {:keys [from to promote]}]
   (let [board (Board.)
-        move (Move. (Square/valueOf (string/upper-case from))
-                    (Square/valueOf (string/upper-case to)))]
+        from-square (Square/valueOf (string/upper-case from))
+        to-square (Square/valueOf (string/upper-case to))
+        promotePiece (when promote
+                       (get-promote-piece to promote))
+        move (if promote
+               (Move. from-square to-square promotePiece)
+               (Move. from-square to-square))]
     (.loadFromFen board fen)
     (.doMove board move)
     (.getFen board)))
@@ -95,9 +114,14 @@
     (.add move-list move)
     (string/trim (.toSan move-list))))
 
-(defn move-squares-to-san [fen from to]
-  (let [move (Move. (Square/valueOf (string/upper-case from))
-                    (Square/valueOf (string/upper-case to)))]
+(defn move-squares-to-san [fen from to & [promote]]
+  (let [from-square (Square/valueOf (string/upper-case from))
+        to-square (Square/valueOf (string/upper-case to))
+        promote-piece (when promote
+                        (get-promote-piece to promote))
+        move (if promote
+               (Move. from-square to-square promote-piece)
+               (Move. from-square to-square))]
     (move-to-san fen move)))
 
 (defn diff-fens-as-san [fen-1 fen-2]
