@@ -76,7 +76,7 @@
           "R" Piece/BLACK_ROOK
           "Q" Piece/BLACK_QUEEN))))
 
-(defn apply-move-map [fen {:keys [from to promote]}]
+(defn apply-move-map [fen {:keys [from to promote] :as move}]
   (let [board (Board.)
         from-square (Square/valueOf (string/upper-case from))
         to-square (Square/valueOf (string/upper-case to))
@@ -86,7 +86,10 @@
                (Move. from-square to-square promotePiece)
                (Move. from-square to-square))]
     (.loadFromFen board fen)
-    (.doMove board move)
+    (try
+      (.doMove board move)
+      (catch Exception e
+        (println (format "Failed to apply %s to %s" move fen))))
     (.getFen board)))
 
 (defn apply-move-san [fen san]
@@ -122,7 +125,11 @@
         move (if promote
                (Move. from-square to-square promote-piece)
                (Move. from-square to-square))]
-    (move-to-san fen move)))
+    (try (move-to-san fen move)
+         (catch Exception e
+           (println (format "Failed to convert %s to san with fen %s"
+                            {:from from :to to :promote promote}
+                            fen))))))
 
 (defn diff-fens-as-san [fen-1 fen-2]
   (let [board (Board.)]
