@@ -20,26 +20,11 @@
 
 (def fen->moves (read-edn-resource "fen_to_moves.edn"))
 
-(def state
-  (atom {:fen->note (read-edn-resource "fen_to_notes.edn")
-         :san-seq []
-         :frame-idx 0
-         :locked-variation nil}))
+(def fen->note
+  (atom (read-edn-resource "fen_to_notes.edn")))
 
-(defn reset [state]
-  (assoc state
-         :san-seq []
-         :frame-idx 0))
-
-(defn get-fen [state]
-  (let [san-seq (sget state :san-seq)
-        frame-idx (sget state :frame-idx)]
-    (reduce chess/apply-move-san
-            chess/initial-fen
-            (take frame-idx san-seq))))
-
-(defn parse-move [state data]
-  (let [fen (get-fen state)
+(defn compute-san [data]
+  (let [fen (sget data :fen)
         to (sget data :to)
         from (sget data :from)
         promote (get data :promote)]
@@ -48,122 +33,69 @@
            (println (.getMsg e))
            nil))))
 
-(defn advance-to-latest-frame [state]
-  (let [san-seq (sget state :san-seq)
-        num-moves (count san-seq)]
-    (assoc state :frame-idx num-moves)))
-
-(defn correct-move? [state san]
-  (let [fen (get-fen state)
-        moves (sget fen->moves fen)]
+(defn correct-move? [fen san]
+  (let [moves (sget fen->moves fen)]
     (assert (set? moves))
     (contains? moves san)))
 
-(defn move [state san]
-  (-> state
-      (update :san-seq conj san)
-      advance-to-latest-frame))
-
-(defn get-random-move [state]
-  (let [fen (get-fen state)
-        moves (sget fen->moves fen)]
+(defn get-random-move [fen]
+  (let [moves (sget fen->moves fen)]
     (first (shuffle moves))))
 
-(defn variation-continues? [state]
-  (let [fen (get-fen state)
-        moves (get fen->moves fen [])]
+(defn variation-continues? [fen]
+  (let [moves (get fen->moves fen [])]
      (seq moves)))
 
-(defn opponent-move [state]
-  (let [san-seq (sget state :san-seq)
-        frame-idx (sget state :frame-idx)
-        locked-variation (sget state :locked-variation)
-        num-moves (count san-seq)
-        next-move (if (and (some? locked-variation)
-                           (< num-moves (count locked-variation)))
-                    (nth locked-variation (inc num-moves))
-                    (get-random-move state))]
-    (-> state
-        (update :san-seq conj next-move)
-        advance-to-latest-frame)))
+(defn get-note [fen]
+  (get @fen->note fen ""))
 
-(defn get-note [state]
-  (let [fen->note (sget state :fen->note)
-        fen (get-fen state)]
-    (get fen->note fen "")))
-
-(defn update-fen->note [state note]
-  (let [fen (get-fen state)]
-    (update state
-            :fen->note
-            assoc
-            fen
-            note)))
-
-(defn write-fen->note! []
-  (spit (resource "fen_to_notes.edn")
-        (sget @state :fen->note)))
-
-(defn lock-variation [state]
-  (let [san-seq (sget state :san-seq)
-        frame-idx (sget state :frame-idx)]
-    (assoc state
-           :locked-variation
-           (take frame-idx san-seq))))
+(defn update-fen->note! [fen note]
+  (let [fen->note* (swap! fen->note assoc fen note)]
+    (spit (resource "fen_to_notes.edn")
+          fen->note*)))
 
 (defroutes app
   (GET "/" [] (slurp "front/openings/dist/openingsTrainer.html"))
   (GET "/openingsTrainer.js" [] (slurp "front/openings/dist/openingsTrainer.js"))
-  (POST "/reset" _
-        (swap! state reset))
   (POST "/move" {body :body}
         (let [data (read-json-data body)
-              san (parse-move @state data)]
-          (println "Attempting a move from state " @state)
-          (if (and (some? san)
-                   (correct-move? @state san))
-            (do (swap! state move san)
-                (println "Move is correct. After move state is " @state)
+              fen (sget data :fen)
+              san (compute-san data)
+              new-fen (chess/apply-move-san fen san)]
+          (if (correct-move? fen san)
+            (do (println "Move is correct.")
                 (json/generate-string
                  {:correct true
-                  :fen (get-fen @state)
-                  :end (not (variation-continues? @state))}))
+                  :fen new-fen
+                  :end (not (variation-continues? fen))}))
             (do (println "Move is not correct")
                 (json/generate-string
                  {:correct false
-                  :fen (get-fen @state)
-                  :end (not (variation-continues? @state))})))))
-  (POST "/opponent-move" _
-       (if (variation-continues? @state)
-         (do (println "Variation continues. Getting pone move from "
-                      @state)
-             (swap! state opponent-move)
-             (println "Sending opponent move from state" @state)
-             (json/generate-string
-              {:fen (get-fen @state)
-               :note (get-note @state)}))
-         (do (println "Variation does not continue. State = " @state)
-             (json/generate-string
-              {:fen (get-fen @state)
-               :note (get-note @state)}))))
-  (GET "/note" _
-       (json/generate-string
-        {:note (get-note @state)}))
+                  :fen fen
+                  :end (not (variation-continues? fen))})))))
+  (POST "/opponent-move" {body :body}
+        (let [data (read-json-data body)
+              fen (sget data :fen)
+              continue (variation-continues? fen)
+              san (when continue (get-random-move fen))
+              new-fen (when continue (chess/apply-move-san fen san))]
+          (if continue
+            (do (println "Variation continues.")
+                (json/generate-string
+                 {:fen new-fen
+                  :note (get-note new-fen)}))
+            (do (println "Variation does not continue.")
+                (json/generate-string
+                 {:fen fen
+                  :note (get-note fen)})))))
   (POST "/note" {body :body}
         (let [data (read-json-data body)
+              fen (sget data :fen)
               note (sget data :note)]
           (println "Received note " note)
-          (swap! state update-fen->note note)
-          (println "After updating notes, state is " @state)
-          (write-fen->note!)
+          (update-fen->note! fen note)
           (json/generate-string
-           {:cool-number 7})))
-  (POST "/lock-variation" _
-        (swap! state lock-variation)
-        nil)
-  (POST "/unlock-variation" _
-        (swap! state assoc :locked-variation nil)
-        nil))
+           {:response-to-prevent-404-error 42}))))
 
 (defn -main []
   (println "Ready!")

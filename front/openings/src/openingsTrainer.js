@@ -8,10 +8,6 @@ import { getActiveColor,
 import { parseFen,
 	 getPieces,
 	 getPiecesFromFen } from "./Fen.js";
-import { fenToCorrectMoves,
-         fenToOpponentMoves,
-         fenXMoveToFen } from "./openingsData.js";
-import { shuffle } from "lodash";
 
 const hflexStyle = {display: "flex", flexDirection: "row"}
 const vflexStyle = {display: "flex", flexDirection: "column"}
@@ -67,46 +63,6 @@ const Button = (props) => {
   );
 };
 
-/*
-class Note extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { text: this.props.text };
-  }
-  
-  shouldComponentUpdate(nextProps) {
-    if (nextProps.text !== this.state.text) {
-      this.setState({ text: nextProps.text });
-      return true;
-    }
-    return false;
-    //return true;
-  }
-  
-  updateText(e) {
-    event.preventDefault();
-    this.setState({ text: nextProps.text });
-    appState.text = e.target.value;
-    syncAppState();
-  }
-
-  render() {
-    return React.createElement(
-      "textarea",
-      { onChange: this.updateText },
-      this.props.text
-    );
-  }
-};
-*/
-/*
-(e) => {
-	  console.log(`Updating note to ${e.target.value}`);
-	  appState.notesText = e.target.value;
-	  syncAppState();
-	},
-*/
-
 class CommentWidget extends React.Component {
   render() {
     let { notesText } = this.props;
@@ -126,21 +82,6 @@ class CommentWidget extends React.Component {
       	null,
       	notesText
       ),
-      //React.createElement(
-      //	"textarea",
-      //	{
-      //	  onChange: (e) => {
-      //	    console.log(`Updating note to ${e.target.value}`);
-      //	    appState.notesText = e.target.value;
-      //	    syncAppState();
-      //	  },
-      //	},
-      //	""
-      //),
-      //React.createElement(
-      //	Note,
-      //	{ text: notesText } 
-      //),
       Button({
 	text: "Update notes",
 	onClick: () => {
@@ -150,7 +91,10 @@ class CommentWidget extends React.Component {
 	  fetch('note', {
 	    method: 'POST',
 	    headers: { 'Content-Type': 'application/json;charset=utf-8' },
-	    body: JSON.stringify({note: newNote})
+	    body: JSON.stringify({
+	      fen: getFen(),
+	      note: newNote
+	    })
 	  })
 	}
       })
@@ -199,19 +143,15 @@ class Page extends React.Component {
 }
 
 const resetBoard = () => {
-  fetch('reset', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json;charset=utf-8' },
-  }).then(() => {
-    appState.fenStack = [initialFen];
-    appState.frameIdx = 0;
-    appState.variationComplete = false;
-    appState.selectedSquare = null;
-    syncAppState();
-    if (appState.color == "b") {
-      opponentPlaysFirstMove();
-    }
-  });
+  appState.fenStack = [initialFen];
+  appState.frameIdx = 0;
+  appState.notesText = "";
+  appState.variationComplete = false;
+  appState.selectedSquare = null;
+  syncAppState();
+  if (appState.color == "b") {
+    opponentPlaysFirstMove();
+  }
 };
 
 const flipBoard = () => {
@@ -249,6 +189,7 @@ const move = (fen) => {
 
 const tryMove = (fromSquare, toSquare) => {
   let body = {
+    fen: getFen(),
     from: fromSquare,
     to: toSquare,
   };
@@ -289,6 +230,7 @@ const opponentMove = () => {
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json;charset=utf-8' },
+      body: JSON.stringify({fen: getFen()})
     })
     .then(response => response.json())
     .then(responseJSON => {
