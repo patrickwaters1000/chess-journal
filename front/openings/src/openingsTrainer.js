@@ -9,6 +9,10 @@ import { parseFen,
 	 getPieces,
 	 getPiecesFromFen } from "./Fen.js";
 
+// TODO notes stack
+// Do not update note on cancel
+// Show alternatives in UI, override opponent's move.
+
 const hflexStyle = {display: "flex", flexDirection: "row"}
 const vflexStyle = {display: "flex", flexDirection: "column"}
 
@@ -20,24 +24,36 @@ const syncAppState = () => {
   handle.setState(deepCopy(appState));
 };
 
+const initialFrame = {
+  fen: initialFen,
+  note: ""
+};
+
 var appState = {
-  fenStack: [initialFen],
+  frameStack: [initialFrame],
   frameIdx: 0,
   variationComplete: false,
   color: "w",
   selectedSquare: null,
   flipBoard: false,
-  notesText: ""
 };
 
-const getFen = () => {
-  let { fenStack,
+const getFrame = () => {
+  let { frameStack,
 	frameIdx } = appState;
-  return fenStack[frameIdx];
+  return frameStack[frameIdx];
 };
+
+const getFen = () => getFrame().fen;
+
+const getNote = () => getFrame().note;
+
+const setNote = (note) => {
+  getFrame().note = note;
+}
 
 const getMaxFrameIdx = () => {
-  return appState.fenStack.length - 1;
+  return appState.frameStack.length - 1;
 };
 
 const viewingLatestFrame = () => {
@@ -86,7 +102,7 @@ class CommentWidget extends React.Component {
 	text: "Update notes",
 	onClick: () => {
 	  let newNote = prompt("Update note:", notesText);
-	  appState.notesText = newNote;
+	  setNote(newNote);
 	  syncAppState();
 	  fetch('note', {
 	    method: 'POST',
@@ -110,14 +126,15 @@ class Page extends React.Component {
   };
   
   render() {
-    let { fenStack,
+    let { frameStack,
 	  frameIdx,
 	  color,
 	  flipBoard,
 	  selectedSquare,
-	  notesText
 	} = this.state;
-    let fen = fenStack[frameIdx];
+    let frame = frameStack[frameIdx];
+    let { fen,
+	  note } = frame;
     return React.createElement(
       "div",
       { style: hflexStyle },
@@ -135,7 +152,7 @@ class Page extends React.Component {
       React.createElement(
 	CommentWidget,
 	{
-	  notesText: notesText
+	  notesText: note
 	}
       )
     );
@@ -143,9 +160,8 @@ class Page extends React.Component {
 }
 
 const resetBoard = () => {
-  appState.fenStack = [initialFen];
+  appState.frameStack = [initialFrame];
   appState.frameIdx = 0;
-  appState.notesText = "";
   appState.variationComplete = false;
   appState.selectedSquare = null;
   syncAppState();
@@ -180,8 +196,8 @@ const movingIsAllowed = () => {
 	  && appState.selectedSquare != null);
 };
 
-const move = (fen) => {
-  appState.fenStack.push(fen);
+const move = (fen, note) => {
+  appState.frameStack.push({fen: fen, note: note});
   appState.frameIdx = getMaxFrameIdx();
   appState.selectedSquare = null;
   syncAppState();
@@ -203,10 +219,10 @@ const tryMove = (fromSquare, toSquare) => {
       //console.log(
       // `Sent move to server. Response: ${JSON.stringify(responseJSON)}`
       //);
-      let { correct, fen, end } = responseJSON;
+      let { correct, fen, end, note } = responseJSON;
       if (correct) {
 	console.log("The move was correct");
-	move(fen);
+	move(fen, note);
 	if (end == 'true') {
 	  console.log("End of variation");
 	  appState.variationComplete = true;
@@ -235,8 +251,7 @@ const opponentMove = () => {
     .then(response => response.json())
     .then(responseJSON => {
       let { fen, note } = responseJSON;
-      appState.notesText = note;
-      move(fen);
+      move(fen, note);
     })
 };
 
