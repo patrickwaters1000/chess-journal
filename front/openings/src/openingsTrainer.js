@@ -25,8 +25,10 @@ const syncAppState = () => {
 };
 
 const initialFrame = {
-  fen: initialFen,
-  note: ""
+  fens: [initialFen],
+  notes: [""],
+  sans: [null],
+  selected: 0
 };
 
 var appState = {
@@ -38,18 +40,41 @@ var appState = {
   flipBoard: false,
 };
 
+// TODO make these fns of `state` so that we can use them in `Page`.
 const getFrame = () => {
   let { frameStack,
 	frameIdx } = appState;
   return frameStack[frameIdx];
 };
 
-const getFen = () => getFrame().fen;
+const getFrameSelected = () => {
+  let { fens,
+	notes,
+	sans,
+	selected } = getFrame();
+  return {
+    fen: fens[selected],
+    note: notes[selected],
+    san: sans[selected]
+  };
+};
 
-const getNote = () => getFrame().note;
+const getFen = () => getFrameSelected().fen;
+
+const getNote = () => getFrameSelected().note;
 
 const setNote = (note) => {
-  getFrame().note = note;
+  let { selected, notes } = getFrame();
+  notes[selected] = note;
+}
+
+const selectAlternativeMove = (idxToSelect) => {
+  console.log(`Selecting move ${idxToSelect}`);
+  let { frameIdx,
+	frameStack } = appState;
+  getFrame().selected = idxToSelect;
+  appState.frameStack = frameStack.slice(0, frameIdx + 1);
+  syncAppState();
 }
 
 const getMaxFrameIdx = () => {
@@ -72,12 +97,43 @@ const Button = (props) => {
     {
       onClick: props.onClick,
       style: {
-	maxWidth: "150px"
+	maxWidth: "150px",
+	width: "150px"
       }
     },
     props.text
   );
 };
+
+const AlternativeMoves = (props) => {
+  let { selected, sans } = props;
+  let numMoves = sans.length;
+  let buttons = [];
+  for (let i = 0; i < numMoves; i++) {
+    if (i != selected) {
+      let button = Button({
+	onClick: () => { selectAlternativeMove(i); },
+	text: sans[i]
+      });
+      buttons.push(button);
+    }
+  }
+  return React.createElement(
+    "div",
+    { style: vflexStyle },
+    React.createElement(
+      "p",
+      {},
+      "Alternatives:"
+    ),
+    React.createElement(
+      "div",
+      {style: vflexStyle },
+      ...buttons
+    )
+  );
+  syncAppState();
+}
 
 class CommentWidget extends React.Component {
   render() {
@@ -133,8 +189,12 @@ class Page extends React.Component {
 	  selectedSquare,
 	} = this.state;
     let frame = frameStack[frameIdx];
-    let { fen,
-	  note } = frame;
+    let { fens,
+	  notes,
+	  selected } = frame;
+    console.log(`Frame: ${JSON.stringify(frame)}`);
+    let fen = fens[selected];
+    let note = notes[selected];
     return React.createElement(
       "div",
       { style: hflexStyle },
@@ -150,10 +210,16 @@ class Page extends React.Component {
 	}
       ),
       React.createElement(
-	CommentWidget,
-	{
-	  notesText: note
-	}
+	"div",
+	{ style: vflexStyle },
+	React.createElement(
+	  CommentWidget,
+	  { notesText: note }
+	),
+	React.createElement(
+	  AlternativeMoves,
+	  frame
+	)
       )
     );
   };
@@ -196,8 +262,8 @@ const movingIsAllowed = () => {
 	  && appState.selectedSquare != null);
 };
 
-const move = (fen, note) => {
-  appState.frameStack.push({fen: fen, note: note});
+const move = (frame) => {
+  appState.frameStack.push(frame);
   appState.frameIdx = getMaxFrameIdx();
   appState.selectedSquare = null;
   syncAppState();
@@ -222,7 +288,12 @@ const tryMove = (fromSquare, toSquare) => {
       let { correct, fen, end, note } = responseJSON;
       if (correct) {
 	console.log("The move was correct");
-	move(fen, note);
+	move({
+	  fens: [fen],
+	  notes: [note],
+	  sans: [null],
+	  selected: 0
+	});
 	if (end == 'true') {
 	  console.log("End of variation");
 	  appState.variationComplete = true;
@@ -242,7 +313,7 @@ const tryMove = (fromSquare, toSquare) => {
 
 const opponentMove = () => {
   fetch(
-    'opponent-move',
+    'opponent-moves',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json;charset=utf-8' },
@@ -250,8 +321,8 @@ const opponentMove = () => {
     })
     .then(response => response.json())
     .then(responseJSON => {
-      let { fen, note } = responseJSON;
-      move(fen, note);
+      let frame = responseJSON;
+      move(frame);
     })
 };
 

@@ -9,6 +9,8 @@
             [chess-journal2.chess :as chess]
             [chess-journal2.utils :refer [sget]]))
 
+;; TODO Currently the server is logging an exception at the end of each variation, trying to get moves for a fen that isn't available.
+
 (defn resource [file]
   (str "/home/patrick/chess-journal2/resources/" file))
 
@@ -22,6 +24,8 @@
 
 (def fen->note
   (atom (read-edn-resource "fen_to_notes.edn")))
+
+(def rng (java.util.Random.))
 
 (defn compute-san [data]
   (let [fen (sget data :fen)
@@ -38,9 +42,8 @@
     (assert (set? moves))
     (contains? moves san)))
 
-(defn get-random-move [fen]
-  (let [moves (sget fen->moves fen)]
-    (first (shuffle moves))))
+(defn get-moves [fen]
+  (sget fen->moves fen))
 
 (defn variation-continues? [fen]
   (let [moves (get fen->moves fen [])]
@@ -73,21 +76,20 @@
                  {:correct false
                   :fen fen
                   :end (not (variation-continues? fen))})))))
-  (POST "/opponent-move" {body :body}
+  (POST "/opponent-moves" {body :body}
         (let [data (read-json-data body)
               fen (sget data :fen)
-              continue (variation-continues? fen)
-              san (when continue (get-random-move fen))
-              new-fen (when continue (chess/apply-move-san fen san))]
-          (if continue
-            (do (println "Variation continues.")
-                (json/generate-string
-                 {:fen new-fen
-                  :note (get-note new-fen)}))
-            (do (println "Variation does not continue.")
-                (json/generate-string
-                 {:fen fen
-                  :note (get-note fen)})))))
+              sans (get-moves fen)
+              fens (map (partial chess/apply-move-san fen) sans)
+              notes (map get-note fens)
+              idx (when (seq sans)
+                    (.nextInt rng (count sans)))]
+          (json/generate-string
+           {:fens fens
+            :sans sans
+            :notes notes
+            :selected idx ;; Is there a better way?
+            })))
   (POST "/note" {body :body}
         (let [data (read-json-data body)
               fen (sget data :fen)
