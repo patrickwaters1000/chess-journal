@@ -54,5 +54,8 @@
 
 (comment
   (load-reportoire! "white_reportoire.edn"
-                    [[:sicilian-rossolimo :sidelines]
-                     [:two-knights-caro :d4-variation]]))
+                    [;[:sicilian-rossolimo :sidelines]
+                     ;[:two-knights-caro :d4-variation]
+                     [:latvian-gambit]
+                     [:sicilian-delayed-alapin]])
+  nil)

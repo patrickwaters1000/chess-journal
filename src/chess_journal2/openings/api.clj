@@ -97,6 +97,8 @@
           (json/generate-string
            {:response-to-prevent-404-error 42}))))
 
+;; lein run -m chess-journal2.openings.api
+
 (defn -main []
   (println "Ready!")
   (run-server (rmp/wrap-params app)
