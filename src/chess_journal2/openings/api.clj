@@ -70,12 +70,12 @@
                 (json/generate-string
                  {:correct true
                   :fen new-fen
-                  :end (not (variation-continues? fen))}))
+                  :end (not (variation-continues? new-fen))}))
             (do (println "Move is not correct")
                 (json/generate-string
                  {:correct false
                   :fen fen
-                  :end (not (variation-continues? fen))})))))
+                  :end (not (variation-continues? new-fen))})))))
   (POST "/opponent-moves" {body :body}
         (let [data (read-json-data body)
               fen (sget data :fen)

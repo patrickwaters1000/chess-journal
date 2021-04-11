@@ -38,6 +38,8 @@ var appState = {
   color: "w",
   selectedSquare: null,
   flipBoard: false,
+  lockedVariationFrameIdx: null,
+  lockedVariationFrame: null
 };
 
 // TODO make these fns of `state` so that we can use them in `Page`.
@@ -77,6 +79,20 @@ const selectAlternativeMove = (idxToSelect) => {
   syncAppState();
 }
 
+const lockVariation = () => {
+  let { frameIdx } = appState;
+  appState.lockedVariationFrameIdx = frameIdx;
+  appState.lockedVariationFrame = getFrame();
+  syncAppState();
+}
+
+const unlockVariation = () => {
+  // More logical for this to be null?
+  appState.lockedVariationFrameIdx = null;
+  appState.lockedVariationFrame = null;
+  syncAppState();
+}
+
 const getMaxFrameIdx = () => {
   return appState.frameStack.length - 1;
 };
@@ -102,6 +118,34 @@ const Button = (props) => {
       }
     },
     props.text
+  );
+};
+
+const LockButton = (props) => {
+  let { frameIdx } = props;
+  let button;
+  // TODO Clean this up. We are checking for `null` here, so it is
+  // confusing that we pass the frame index.
+  if (!frameIdx) {
+    button = Button({
+      text: "Lock",
+      onClick: lockVariation
+    });
+  } else {
+    button = Button({
+      text: "Unlock",
+      onClick: unlockVariation
+    });
+  }
+  return React.createElement(
+    "div",
+    { style: vflexStyle },
+    React.createElement(
+      "p",
+      {},
+      "Lock current variation:"
+    ),
+    button
   );
 };
 
@@ -187,6 +231,7 @@ class Page extends React.Component {
 	  color,
 	  flipBoard,
 	  selectedSquare,
+	  lockedVariationFrameIdx
 	} = this.state;
     let frame = frameStack[frameIdx];
     let { fens,
@@ -219,6 +264,10 @@ class Page extends React.Component {
 	React.createElement(
 	  AlternativeMoves,
 	  frame
+	),
+	React.createElement(
+	  LockButton,
+	  { frameIdx: lockedVariationFrameIdx }
 	)
       )
     );
@@ -226,13 +275,25 @@ class Page extends React.Component {
 }
 
 const resetBoard = () => {
-  appState.frameStack = [initialFrame];
-  appState.frameIdx = 0;
+  let { frameStack,
+	lockedVariationFrameIdx } = appState;
+  if (lockedVariationFrameIdx) {
+    appState.frameStack = frameStack.slice(0, lockedVariationFrameIdx);
+    appState.frameIdx = lockedVariationFrameIdx - 1;
+  } else {
+    appState.frameStack = [initialFrame];
+    appState.frameIdx = 0;
+  }
   appState.variationComplete = false;
   appState.selectedSquare = null;
+  console.log(`After reset, state = ${JSON.stringify(appState)}`);
   syncAppState();
-  if (appState.color == "b") {
-    opponentPlaysFirstMove();
+  if (!playerHasTurn()) {
+    if (lockedVariationFrameIdx) {
+      opponentPlaysLockedMove();
+    } else {
+      opponentPlaysFirstMove();
+    }
   }
 };
 
@@ -287,14 +348,14 @@ const tryMove = (fromSquare, toSquare) => {
       //);
       let { correct, fen, end, note } = responseJSON;
       if (correct) {
-	console.log("The move was correct");
+	console.log(`The move was correct. End = ${end}`);
 	move({
 	  fens: [fen],
 	  notes: [note],
 	  sans: [null],
 	  selected: 0
 	});
-	if (end == 'true') {
+	if (end == true) {
 	  console.log("End of variation");
 	  appState.variationComplete = true;
 	} else {
@@ -353,6 +414,13 @@ document.addEventListener("keydown", (e) => {
     break;
   }
 });
+
+const opponentPlaysLockedMove = () => {
+  setTimeout(
+    () => { move(appState.lockedVariationFrame); },
+    500
+  );
+};
 
 const opponentPlaysFirstMove = () => {
   setTimeout(
