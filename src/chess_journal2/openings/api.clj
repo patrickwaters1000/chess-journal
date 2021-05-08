@@ -76,6 +76,12 @@
                  {:correct false
                   :fen fen
                   :end (not (variation-continues? new-fen))})))))
+  (POST "/moves" {body :body}
+       (let [data (read-json-data body)
+             fen (sget data :fen)
+             moves (get-moves fen)]
+         (json/generate-string
+          {:moves moves})))
   (POST "/opponent-moves" {body :body}
         (let [data (read-json-data body)
               fen (sget data :fen)

@@ -9,9 +9,7 @@ import { parseFen,
 	 getPieces,
 	 getPiecesFromFen } from "./Fen.js";
 
-// TODO notes stack
-// Do not update note on cancel
-// Show alternatives in UI, override opponent's move.
+// Do not update note on cancel (DONE?)
 
 const hflexStyle = {display: "flex", flexDirection: "row"}
 const vflexStyle = {display: "flex", flexDirection: "column"}
@@ -35,9 +33,9 @@ var appState = {
   frameStack: [initialFrame],
   frameIdx: 0,
   variationComplete: false,
-  color: "w",
+  color: "b",
   selectedSquare: null,
-  flipBoard: false,
+  flipBoard: true,
   lockedVariationFrameIdx: null,
   lockedVariationFrame: null
 };
@@ -268,7 +266,11 @@ class Page extends React.Component {
 	React.createElement(
 	  LockButton,
 	  { frameIdx: lockedVariationFrameIdx }
-	)
+	),
+	Button({
+	  text: "Give up",
+	  onClick: giveUp
+	})
       )
     );
   };
@@ -328,6 +330,21 @@ const move = (frame) => {
   appState.frameIdx = getMaxFrameIdx();
   appState.selectedSquare = null;
   syncAppState();
+};
+
+const giveUp = () => {
+  let body = {
+    fen: getFen(),
+  };
+  fetch('moves', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(resp => resp.json())
+    .then(respJSON => {
+      let { moves } = respJSON;
+      alert(JSON.stringify(moves));
+    });  
 };
 
 const tryMove = (fromSquare, toSquare) => {

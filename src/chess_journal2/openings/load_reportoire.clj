@@ -18,9 +18,9 @@
             chess/initial-fen]
            line)))
 
-(defn get-lines [reportoire paths]
-  (reduce (fn [lines path]
-            (let [new-lines (get-in reportoire path)]
+(defn get-lines [reportoire variations]
+  (reduce (fn [lines variation]
+            (let [new-lines (get reportoire variation)]
               (if (vector? lines)
                 (reduce (fn [lines* line]
                           (if (string? line)
@@ -33,7 +33,7 @@
                         (str "Expected a vector of lines but got "
                              new-lines))))))
           []
-          paths))
+          variations))
 
 (defn build-fen->sans [lines]
   (->> lines
@@ -44,18 +44,37 @@
 (def resources-dir "/home/patrick/chess-journal2/resources/")
 (def target-file (str resources-dir "fen_to_moves.edn"))
 
-(defn load-reportoire! [file paths]
+(defn load-reportoire! [file variations]
   (let [data (-> (str resources-dir file)
                  slurp
                  read-string)
-        lines (get-lines data paths)
+        lines (get-lines data variations)
         fen->sans (build-fen->sans lines)]
     (spit target-file fen->sans)))
 
 (comment
   (load-reportoire! "white_reportoire.edn"
-                    [;[:sicilian-rossolimo :sidelines]
-                     ;[:two-knights-caro :d4-variation]
-                     [:latvian-gambit]
-                     [:sicilian-delayed-alapin]])
+                    [:two-knights-caro-g6-variation
+                     :two-knights-caro-dxe4-variation
+                     :two-knights-caro-Bg4-variation
+                     :two-knights-caro-Nf6-variation
+                     :sicilian-rossolimo-sidelines
+                     :sicilian-rossolimo-fianchetto-variation
+                     :sicilian-rossolimo-e6-variation
+                     :sicilian-rossolimo-d6-variation
+                     :sicilian-rossolimo-moscow-Nd7
+                     :sicilian-rossolimo-moscow-Bd7
+                     :sicilian-delayed-alapin
+                     :scandinavian-modern-variation
+                     :scandinavian-Qe5+
+                     :scandinavian-Qd6
+                     :scandinavian-Qd8
+                     :scandinavian-Qa5
+                                        ;:latvian-gambit
+                     :alekhines-defence
+                     :pirc-defence
+                     :modern-defence
+                     :owen-defence
+                     :st-george-defence
+                     :nimzowitsch-defence])
   nil)
